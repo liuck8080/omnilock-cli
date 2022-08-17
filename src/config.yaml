@@ -1,0 +1,9 @@
+# The tansaction where the omnilock script was deployed, in hex mode;
+# omnilock_tx_hash can compose the output content.
+omnilock_tx_hash: "0000000000000000000000000000000000000000000000000000000000000000"
+# The index where the omilock script was deployed.
+omnilock_index: 0
+# The ckb_rpc url
+ckb_rpc: "http://127.0.0.1:8114"
+# The ckb_index url
+ckb_indexer: "http://127.0.0.1:8116"
