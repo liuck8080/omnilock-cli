@@ -4,7 +4,6 @@ CLIPPY_OPTS := -D warnings -D clippy::clone_on_ref_ptr -D clippy::enum_glob_use 
 
 fmt:
 	cargo fmt --all -- --check
-	cd test && cargo fmt --all -- --check
 
 clippy:
 	cargo clippy --all --all-targets --all-features -- ${CLIPPY_OPTS}

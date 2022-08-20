@@ -13,3 +13,4 @@ yaml-rust = "0.4.3"
 
 ckb-sdk = "1.0.1"
 dirs = "1.0.5"
+anyhow = "1.0"

@@ -1,6 +1,6 @@
 mod config;
-use std::path::PathBuf;
 
+use anyhow::Result;
 use ckb_sdk::Address;
 use ckb_types::{
     bytes::Bytes,
@@ -77,7 +77,7 @@ struct Cli {
     command: Commands,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
@@ -85,14 +85,18 @@ fn main() {
             println!("build!");
         }
         Commands::InitConfig => {
-            match ConfigContext::write_template(&cli.config) {
-                Ok(_) => println!("The template file {} generated, please fill it with the correct content.", &cli.config),
-                Err(e) => println!("Fail to generate the template file {}, error: {}", cli.config, e)
-            }
+            ConfigContext::write_template(&cli.config).and_then(|_| {
+                println!(
+                    "The template file {} generated, please fill it with the correct content.",
+                    &cli.config
+                );
+                Ok(())
+            })?;
         }
         Commands::Hi => {
             let config = ConfigContext::parse(&cli.config).unwrap();
             println!("Hello, world!");
         }
     }
+    Ok(())
 }
