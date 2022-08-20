@@ -4,16 +4,16 @@ use ckb_types::H256;
 use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
 pub struct ConfigContext {
-    omnilock_tx_hash: H256,
+    pub omnilock_tx_hash: H256,
 
     /// cell index of omnilock script deploy transaction's outputs
-    omnilock_index: usize,
+    pub omnilock_index: u32,
 
     /// CKB rpc url, default value = "http://127.0.0.1:8114"
-    ckb_rpc: String,
+    pub ckb_rpc: String,
 
     /// CKB indexer rpc url, default_value = "http://127.0.0.1:8116"
-    ckb_indexer: String,
+    pub ckb_indexer: String,
 }
 
 macro_rules! try_str {
@@ -80,7 +80,7 @@ fn expand_home_dir(path: &str)->PathBuf {
 impl ConfigContext {
     pub fn new(
         omnilock_tx_hash: H256,
-        omnilock_index: usize,
+        omnilock_index: u32,
         ckb_rpc: String,
         ckb_indexer: String,
     ) -> Self {
@@ -134,7 +134,7 @@ impl ConfigContext {
                 format!("Fail to parse omnilock_tx_hash: {}", e),
             )
         })?;
-        let omnilock_index = try_i64!("omnilock_index", doc) as usize;
+        let omnilock_index = try_i64!("omnilock_index", doc) as u32; // TODO error
         let ckb_rpc = try_str!("ckb_rpc", doc, "http://127.0.0.1:8114");
         let ckb_indexer = try_str!("ckb_indexer", doc, "http://127.0.0.1:8116");
         Ok(Self::new(
