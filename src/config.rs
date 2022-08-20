@@ -36,10 +36,10 @@ macro_rules! try_i64 {
 const TEMPLATE_CONFIG: &[u8] = include_bytes!("./config.yaml");
 
 fn expand_home_dir(path: &str) -> PathBuf {
-    if path.starts_with("~") {
-        let file_path = path.strip_prefix("~").unwrap();
-        let file_path = if file_path.starts_with("/") {
-            file_path.trim_start_matches("/")
+    if path.starts_with('~') {
+        let file_path = path.strip_prefix('~').unwrap();
+        let file_path = if file_path.starts_with('/') {
+            file_path.trim_start_matches('/')
         } else {
             file_path
         };
@@ -76,7 +76,7 @@ impl ConfigContext {
 
         let docs = YamlLoader::load_from_str(&content)
             .with_context(|| format!("{} is not a valid yaml file", path))?;
-        ensure!(docs.len() >= 1, "Can't parse data from {}", path);
+        ensure!(!docs.is_empty(), "Can't parse data from {}", path);
         let doc = &docs[0];
         let omnilock_tx_hash = try_str!("omnilock_tx_hash", doc);
         let omnilock_tx_hash =

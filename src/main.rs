@@ -2,13 +2,7 @@ mod config;
 
 use anyhow::Result;
 use ckb_sdk::Address;
-use ckb_types::{
-    bytes::Bytes,
-    core::{BlockView, ScriptHashType, TransactionView},
-    packed::{Byte32, CellDep, CellOutput, OutPoint, Script, Transaction, WitnessArgs},
-    prelude::*,
-    H160, H256,
-};
+use ckb_types::H256;
 use clap::{Args, Parser, Subcommand};
 use config::ConfigContext;
 
@@ -56,8 +50,6 @@ enum Commands {
     Build(BuildOmniLockAddrMultiSigArgs),
     /// generate a template configuration for later modification.
     InitConfig,
-    /// say hello
-    Hi,
 }
 
 #[derive(Parser)]
@@ -82,20 +74,16 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Build(_args) => {
+            let config = ConfigContext::parse(&cli.config)?;
             println!("build!");
         }
         Commands::InitConfig => {
-            ConfigContext::write_template(&cli.config).and_then(|_| {
+            ConfigContext::write_template(&cli.config).map(|_| {
                 println!(
                     "The template file {} generated, please fill it with the correct content.",
                     &cli.config
                 );
-                Ok(())
             })?;
-        }
-        Commands::Hi => {
-            let config = ConfigContext::parse(&cli.config).unwrap();
-            println!("Hello, world!");
         }
     }
     Ok(())
