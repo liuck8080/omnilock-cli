@@ -1,11 +1,11 @@
-mod config;
 mod build_addr;
+mod config;
 
 use anyhow::Result;
+use build_addr::BuildAddress;
 use ckb_types::H256;
 use clap::{Args, Parser, Subcommand};
 use config::ConfigContext;
-use build_addr::BuildAddress;
 
 use crate::build_addr::build_omnilock_addr;
 
@@ -31,7 +31,6 @@ struct EnvArgs {
     #[clap(long, value_name = "FILE", default_value = "~")]
     env_config_file: String,
 }
-
 
 #[derive(Subcommand)]
 enum Commands {

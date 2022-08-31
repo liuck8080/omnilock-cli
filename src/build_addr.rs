@@ -110,6 +110,7 @@ fn build_addr_with_omnilock_conf(config: &OmniLockConfig, env: &ConfigContext) -
     Ok(())
 }
 
+#[allow(dead_code)]
 struct OmniLockInfo {
     type_hash: H256,
     script_id: ScriptId,
@@ -160,8 +161,6 @@ fn build_multisig_config(
         sighash_addresses.push(H160::from_slice(lock_args.as_ref()).unwrap());
     }
 
-    Ok(
-        MultisigConfig::new_with(sighash_addresses, require_first_n, threshold)
-            .map_err(|e| anyhow!(e.to_string()))?,
-    )
+    MultisigConfig::new_with(sighash_addresses, require_first_n, threshold)
+        .map_err(|e| anyhow!(e.to_string()))
 }
