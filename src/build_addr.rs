@@ -14,7 +14,7 @@ use clap::{Args, Subcommand};
 
 use anyhow::{anyhow, bail, ensure, Result};
 #[derive(Args)]
-pub(crate) struct BuildOmniLockAddrMultiSigArgs {
+pub(crate) struct MultiSigArgs {
     /// Require first n signatures of corresponding pubkey
     #[clap(long, value_name = "NUM")]
     require_first_n: u8,
@@ -32,7 +32,11 @@ pub(crate) struct BuildOmniLockAddrMultiSigArgs {
 pub(crate) enum BuildAddress {
     /// The auth content represents the blake160 hash of a secp256k1 public key.
     /// The lock script will perform secp256k1 signature verification, the same as the SECP256K1/blake160 lock.
-    PubkeyHash,
+    PubkeyHash {
+        /// The receiver address
+        #[clap(long, value_name = "ADDRESS")]
+        receiver: Address,
+    },
     /// It follows the same unlocking methods used by Ethereum.
     Ethereum,
     /// It follows the same unlocking methods used by EOS.
@@ -44,7 +48,7 @@ pub(crate) enum BuildAddress {
     ///  It follows the same unlocking methods used by Dogecoin.
     Dogecoin,
     /// It follows the same unlocking method used by CKB MultiSig.
-    Multisig(BuildOmniLockAddrMultiSigArgs),
+    Multisig(MultiSigArgs),
 
     /// The auth content that represents the blake160 hash of a lock script.
     /// The lock script will check if the current transaction contains an input cell with a matching lock script.
@@ -59,25 +63,38 @@ pub(crate) enum BuildAddress {
     Dl,
 }
 
-pub(crate) fn build_omnilock_addr(cmds: &BuildAddress, conf: &ConfigContext) -> Result<()> {
+pub(crate) fn build_omnilock_addr(cmds: &BuildAddress, env: &ConfigContext) -> Result<()> {
     match cmds {
+        BuildAddress::PubkeyHash { receiver } => {
+            build_pubkeyhash_addr(receiver, env)?;
+        }
         BuildAddress::Multisig(args) => {
-            build_multisig_addr(args, conf)?;
+            build_multisig_addr(args, env)?;
         }
         _ => println!("the action is not supported yet"),
     };
     Ok(())
 }
 
-fn build_multisig_addr(args: &BuildOmniLockAddrMultiSigArgs, conf: &ConfigContext) -> Result<()> {
-    let mut ckb_client = CkbRpcClient::new(conf.ckb_rpc.as_str());
-    let cell =
-        build_omnilock_cell_dep(&mut ckb_client, &conf.omnilock_tx_hash, conf.omnilock_index)?;
+fn build_pubkeyhash_addr(receiver: &Address, env: &ConfigContext) -> Result<()> {
+    let arg = H160::from_slice(&receiver.payload().args()).unwrap();
+    let config = OmniLockConfig::new_pubkey_hash_with_lockarg(arg);
 
+    build_addr_with_omnilock_conf(&config, env)
+}
+
+fn build_multisig_addr(args: &MultiSigArgs, env: &ConfigContext) -> Result<()> {
     let multisig_config =
         build_multisig_config(&args.sighash_address, args.require_first_n, args.threshold)?;
 
     let config = OmniLockConfig::new_multisig(multisig_config);
+    build_addr_with_omnilock_conf(&config, env)
+}
+
+fn build_addr_with_omnilock_conf(config: &OmniLockConfig, env: &ConfigContext) -> Result<()> {
+    let mut ckb_client = CkbRpcClient::new(env.ckb_rpc.as_str());
+    let cell = build_omnilock_cell_dep(&mut ckb_client, &env.omnilock_tx_hash, env.omnilock_index)?;
+
     let address_payload = {
         let args = config.build_args();
         ckb_sdk::AddressPayload::new_full(ScriptHashType::Type, cell.type_hash.pack(), args)

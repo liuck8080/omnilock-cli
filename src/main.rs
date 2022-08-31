@@ -66,7 +66,6 @@ fn main() -> Result<()> {
         Commands::BuildAddress(cmds) => {
             let config = ConfigContext::parse(&cli.config)?;
             build_omnilock_addr(&cmds, &config)?;
-            println!("build!");
         }
         Commands::InitConfig => {
             ConfigContext::write_template(&cli.config).map(|_| {
