@@ -11,6 +11,14 @@ ckb-types = "=0.104.0"
 serde_yaml = "0.8.23"
 yaml-rust = "0.4.3"
 
-ckb-sdk = "1.0.1"
+# ckb-sdk = "1.0.1"
+ckb-sdk = { git = "https://github.com/nervosnetwork/ckb-sdk-rust.git", branch = "omni-lock" }
 dirs = "1.0.5"
 anyhow = "1.0"
+
+serde = { version = "1.0", features = ["derive"] }
+serde_derive = "1.0"
+serde_json = "1.0"
+
+jsonrpc-core = "18"
+ckb-jsonrpc-types = "=0.104.0"

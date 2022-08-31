@@ -1,10 +1,13 @@
 mod config;
+mod build_addr;
 
 use anyhow::Result;
-use ckb_sdk::Address;
 use ckb_types::H256;
 use clap::{Args, Parser, Subcommand};
 use config::ConfigContext;
+use build_addr::BuildAddress;
+
+use crate::build_addr::build_omnilock_addr;
 
 #[derive(Args)]
 struct EnvArgs {
@@ -29,25 +32,12 @@ struct EnvArgs {
     env_config_file: String,
 }
 
-#[derive(Args)]
-struct BuildOmniLockAddrMultiSigArgs {
-    /// Require first n signatures of corresponding pubkey
-    #[clap(long, value_name = "NUM")]
-    require_first_n: u8,
-
-    /// Multisig threshold
-    #[clap(long, value_name = "NUM")]
-    threshold: u8,
-
-    /// Normal sighash address
-    #[clap(long, value_name = "ADDRESS")]
-    sighash_address: Vec<Address>,
-}
 
 #[derive(Subcommand)]
 enum Commands {
     /// build omni lock address
-    Build(BuildOmniLockAddrMultiSigArgs),
+    #[clap(subcommand)]
+    BuildAddress(BuildAddress),
     /// generate a template configuration for later modification.
     InitConfig,
 }
@@ -73,8 +63,9 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Build(_args) => {
+        Commands::BuildAddress(cmds) => {
             let config = ConfigContext::parse(&cli.config)?;
+            build_omnilock_addr(&cmds, &config)?;
             println!("build!");
         }
         Commands::InitConfig => {
