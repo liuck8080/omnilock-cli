@@ -1,4 +1,5 @@
 mod build_addr;
+mod client;
 mod config;
 
 use anyhow::Result;

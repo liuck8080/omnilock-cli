@@ -1,20 +1,15 @@
 use std::str::FromStr;
 
-use crate::config::ConfigContext;
+use crate::{client::build_omnilock_cell_dep, config::ConfigContext};
 use ckb_sdk::{
     constants::SIGHASH_TYPE_HASH,
     unlock::{MultisigConfig, OmniLockConfig},
-    Address, CkbRpcClient, NetworkType, ScriptId, SECP256K1,
+    Address, CkbRpcClient, NetworkType, SECP256K1,
 };
-use ckb_types::{
-    core::ScriptHashType,
-    packed::{Byte32, CellDep, OutPoint, Script},
-    prelude::*,
-    H160, H256,
-};
+use ckb_types::{core::ScriptHashType, packed::Script, prelude::*, H160, H256};
 use clap::{Args, Subcommand};
 
-use anyhow::{anyhow, bail, ensure, Context, Result};
+use anyhow::{anyhow, bail, ensure, Result};
 #[derive(Args)]
 pub(crate) struct MultiSigArgs {
     /// Require first n signatures of corresponding pubkey
@@ -143,38 +138,6 @@ fn build_addr_with_omnilock_conf(config: &OmniLockConfig, env: &ConfigContext) -
     });
     println!("{}", serde_json::to_string_pretty(&resp)?);
     Ok(())
-}
-
-#[allow(dead_code)]
-struct OmniLockInfo {
-    type_hash: H256,
-    script_id: ScriptId,
-    cell_dep: CellDep,
-}
-
-fn build_omnilock_cell_dep(
-    ckb_client: &mut CkbRpcClient,
-    tx_hash: &H256,
-    index: u32,
-) -> Result<OmniLockInfo> {
-    let out_point_json = ckb_jsonrpc_types::OutPoint {
-        tx_hash: tx_hash.clone(),
-        index: ckb_jsonrpc_types::Uint32::from(index as u32),
-    };
-    let cell_status = ckb_client
-        .get_live_cell(out_point_json, false)
-        .with_context(|| "while try to load live cells".to_string())?;
-    let script = Script::from(cell_status.cell.unwrap().output.type_.unwrap());
-
-    let type_hash = script.calc_script_hash();
-    let out_point = OutPoint::new(Byte32::from_slice(tx_hash.as_bytes())?, index as u32);
-
-    let cell_dep = CellDep::new_builder().out_point(out_point).build();
-    Ok(OmniLockInfo {
-        type_hash: H256::from_slice(type_hash.as_slice())?,
-        script_id: ScriptId::new_type(type_hash.unpack()),
-        cell_dep,
-    })
 }
 
 fn build_multisig_config(
