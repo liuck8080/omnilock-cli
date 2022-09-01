@@ -1,8 +1,10 @@
+use std::str::FromStr;
+
 use crate::config::ConfigContext;
 use ckb_sdk::{
     constants::SIGHASH_TYPE_HASH,
     unlock::{MultisigConfig, OmniLockConfig},
-    Address, CkbRpcClient, NetworkType, ScriptId,
+    Address, CkbRpcClient, NetworkType, ScriptId, SECP256K1,
 };
 use ckb_types::{
     core::ScriptHashType,
@@ -12,7 +14,7 @@ use ckb_types::{
 };
 use clap::{Args, Subcommand};
 
-use anyhow::{anyhow, bail, ensure, Result};
+use anyhow::{anyhow, bail, ensure, Context, Result};
 #[derive(Args)]
 pub(crate) struct MultiSigArgs {
     /// Require first n signatures of corresponding pubkey
@@ -38,7 +40,14 @@ pub(crate) enum BuildAddress {
         receiver: Address,
     },
     /// It follows the same unlocking methods used by Ethereum.
-    Ethereum,
+    Ethereum {
+        /// The receiver's private key (hex string)
+        #[clap(long, value_name = "PRV_KEY")]
+        receiver_privkey: Option<H256>,
+        /// The receiver's pub key (hex string)
+        #[clap(long, value_name = "PUB_KEY")]
+        receiver_pubkey: Option<String>,
+    },
     /// It follows the same unlocking methods used by EOS.
     Eos,
     /// It follows the same unlocking methods used by Tron.
@@ -68,10 +77,16 @@ pub(crate) fn build_omnilock_addr(cmds: &BuildAddress, env: &ConfigContext) -> R
         BuildAddress::PubkeyHash { receiver } => {
             build_pubkeyhash_addr(receiver, env)?;
         }
+        BuildAddress::Ethereum {
+            receiver_privkey,
+            receiver_pubkey,
+        } => {
+            build_ethereum_addr(receiver_privkey, receiver_pubkey, env)?;
+        }
         BuildAddress::Multisig(args) => {
             build_multisig_addr(args, env)?;
         }
-        _ => println!("the action is not supported yet"),
+        _ => unreachable!("the action is not supported yet"),
     };
     Ok(())
 }
@@ -79,6 +94,26 @@ pub(crate) fn build_omnilock_addr(cmds: &BuildAddress, env: &ConfigContext) -> R
 fn build_pubkeyhash_addr(receiver: &Address, env: &ConfigContext) -> Result<()> {
     let arg = H160::from_slice(&receiver.payload().args()).unwrap();
     let config = OmniLockConfig::new_pubkey_hash_with_lockarg(arg);
+
+    build_addr_with_omnilock_conf(&config, env)
+}
+
+fn build_ethereum_addr(
+    receiver_privkey: &Option<H256>,
+    receiver_pubkey: &Option<String>,
+    env: &ConfigContext,
+) -> Result<()> {
+    let pubkey = if let Some(str) = receiver_pubkey {
+        secp256k1::PublicKey::from_str(str)?
+    } else if let Some(receiver) = receiver_privkey {
+        let privkey = secp256k1::SecretKey::from_slice(receiver.as_bytes()).unwrap();
+        secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey)
+    } else {
+        bail!("should provide at least one private key or public key of the receiver");
+    };
+    println!("pubkey:{:?}", hex_string(&pubkey.serialize()));
+    println!("pubkey:{:?}", hex_string(&pubkey.serialize_uncompressed()));
+    let config = OmniLockConfig::new_ethereum(&pubkey.into());
 
     build_addr_with_omnilock_conf(&config, env)
 }
@@ -126,7 +161,9 @@ fn build_omnilock_cell_dep(
         tx_hash: tx_hash.clone(),
         index: ckb_jsonrpc_types::Uint32::from(index as u32),
     };
-    let cell_status = ckb_client.get_live_cell(out_point_json, false)?;
+    let cell_status = ckb_client
+        .get_live_cell(out_point_json, false)
+        .with_context(|| "while try to load live cells".to_string())?;
     let script = Script::from(cell_status.cell.unwrap().output.type_.unwrap());
 
     let type_hash = script.calc_script_hash();
