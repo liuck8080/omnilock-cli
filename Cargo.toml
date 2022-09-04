@@ -11,7 +11,7 @@ clap = { version = "3.2", features = ["derive"] }
 ckb-crypto = { version = "=0.104.0", features = ["secp"] }
 ckb-jsonrpc-types = "=0.104.0"
 # ckb-sdk = "1.0.1"
-ckb-sdk = { git = "https://github.com/nervosnetwork/ckb-sdk-rust.git", branch = "omni-lock" }
+ckb-sdk = { git = "https://github.com/nervosnetwork/ckb-sdk-rust.git", branch = "master" }
 ckb-types = "=0.104.0"
 
 dirs = "1.0.5"

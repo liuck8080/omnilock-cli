@@ -13,7 +13,7 @@ pub struct OmniLockInfo {
     pub cell_dep: CellDep,
 }
 
-pub fn build_omnilock_cell_dep(
+pub fn build_omnilock_cell_dep_from_client(
     ckb_client: &mut CkbRpcClient,
     tx_hash: &H256,
     index: u32,
@@ -36,4 +36,9 @@ pub fn build_omnilock_cell_dep(
         script_id: ScriptId::new_type(type_hash.unpack()),
         cell_dep,
     })
+}
+
+pub fn build_omnilock_cell_dep(uri: &str, tx_hash: &H256, index: u32) -> Result<OmniLockInfo> {
+    let mut ckb_client = CkbRpcClient::new(uri);
+    build_omnilock_cell_dep_from_client(&mut ckb_client, tx_hash, index)
 }

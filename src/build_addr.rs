@@ -4,7 +4,7 @@ use crate::{client::build_omnilock_cell_dep, config::ConfigContext};
 use ckb_sdk::{
     constants::SIGHASH_TYPE_HASH,
     unlock::{MultisigConfig, OmniLockConfig},
-    Address, CkbRpcClient, NetworkType, SECP256K1,
+    Address, NetworkType, SECP256K1,
 };
 use ckb_types::{core::ScriptHashType, packed::Script, prelude::*, H160, H256};
 use clap::{Args, Subcommand};
@@ -122,8 +122,11 @@ fn build_multisig_addr(args: &MultiSigArgs, env: &ConfigContext) -> Result<()> {
 }
 
 fn build_addr_with_omnilock_conf(config: &OmniLockConfig, env: &ConfigContext) -> Result<()> {
-    let mut ckb_client = CkbRpcClient::new(env.ckb_rpc.as_str());
-    let cell = build_omnilock_cell_dep(&mut ckb_client, &env.omnilock_tx_hash, env.omnilock_index)?;
+    let cell = build_omnilock_cell_dep(
+        env.ckb_rpc.as_str(),
+        &env.omnilock_tx_hash,
+        env.omnilock_index,
+    )?;
 
     let address_payload = {
         let args = config.build_args();
