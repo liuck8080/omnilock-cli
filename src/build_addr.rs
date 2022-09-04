@@ -21,7 +21,7 @@ pub(crate) struct MultiSigArgs {
     threshold: u8,
 
     /// Normal sighash addresses
-    #[clap(long, value_name = "ADDRESS")]
+    #[clap(long,  multiple_values = true, value_name = "ADDRESS")]
     sighash_address: Vec<Address>,
 }
 
