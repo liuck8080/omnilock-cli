@@ -24,9 +24,8 @@ use ckb_types::{
 };
 use clap::Args;
 
-use crate::{client::build_omnilock_cell_dep_from_client, config::ConfigContext};
+use crate::{client::build_omnilock_cell_dep_from_client, config::ConfigContext, txinfo::TxInfo};
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
 use std::fs;
 #[derive(Args)]
 pub struct GenTxArgs {
@@ -46,16 +45,10 @@ pub struct GenTxArgs {
     tx_file: PathBuf,
 }
 
-#[derive(Serialize, Deserialize)]
-struct TxInfo {
-    tx: json_types::TransactionView,
-    omnilock_config: OmniLockConfig,
-}
-
 pub fn generate_transfer_tx(args: &GenTxArgs, env: &ConfigContext) -> Result<()> {
     let (tx, omnilock_config) = build_transfer_tx(args, env)?;
     let tx_info = TxInfo {
-        tx: json_types::TransactionView::from(tx),
+        transaction: json_types::TransactionView::from(tx).inner,
         omnilock_config,
     };
     fs::write(&args.tx_file, serde_json::to_string_pretty(&tx_info)?)?;
@@ -147,7 +140,7 @@ fn build_transfer_tx(
     Ok((tx, omnilock_config))
 }
 
-fn build_omnilock_unlockers(
+pub fn build_omnilock_unlockers(
     keys: Vec<secp256k1::SecretKey>,
     config: OmniLockConfig,
     omni_lock_type_hash: H256,

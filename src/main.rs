@@ -2,6 +2,8 @@ mod build_addr;
 mod client;
 mod config;
 mod generate;
+mod sign;
+mod txinfo;
 
 use anyhow::Result;
 use build_addr::BuildAddress;
@@ -9,6 +11,7 @@ use ckb_types::H256;
 use clap::{Args, Parser, Subcommand};
 use config::ConfigContext;
 use generate::{generate_transfer_tx, GenTxArgs};
+use sign::{sign_tx, SignTxArgs};
 
 use crate::build_addr::build_omnilock_addr;
 
@@ -42,6 +45,8 @@ enum Commands {
     BuildAddress(BuildAddress),
     /// generate a transaction not signed yet
     GenerateTx(GenTxArgs),
+    /// Sign the transaction
+    Sign(SignTxArgs),
     /// generate a template configuration for later modification.
     InitConfig,
 }
@@ -74,6 +79,10 @@ fn main() -> Result<()> {
         Commands::GenerateTx(args) => {
             let config = ConfigContext::parse(&cli.config)?;
             generate_transfer_tx(&args, &config)?;
+        }
+        Commands::Sign(args) => {
+            let config = ConfigContext::parse(&cli.config)?;
+            sign_tx(&args, &config)?;
         }
         Commands::InitConfig => {
             ConfigContext::write_template(&cli.config).map(|_| {
