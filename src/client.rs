@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{ensure, Context, Result};
 use ckb_sdk::{CkbRpcClient, ScriptId};
 use ckb_types::{
     packed::{Byte32, CellDep, OutPoint, Script},
@@ -25,6 +25,12 @@ pub fn build_omnilock_cell_dep_from_client(
     let cell_status = ckb_client
         .get_live_cell(out_point_json, false)
         .with_context(|| "while try to load live cells".to_string())?;
+    ensure!(
+        cell_status.cell.is_some(),
+        "Can't file the specified omnilock script cell: tx_hash {}, index {}",
+        tx_hash,
+        index
+    );
     let script = Script::from(cell_status.cell.unwrap().output.type_.unwrap());
 
     let type_hash = script.calc_script_hash();

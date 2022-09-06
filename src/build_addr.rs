@@ -43,28 +43,27 @@ pub(crate) enum BuildAddress {
         #[clap(long, value_name = "PUB_KEY")]
         receiver_pubkey: Option<String>,
     },
-    /// It follows the same unlocking methods used by EOS.
-    Eos,
-    /// It follows the same unlocking methods used by Tron.
-    Tron,
-    /// It follows the same unlocking methods used by Bitcoin
-    Bitcoin,
-    ///  It follows the same unlocking methods used by Dogecoin.
-    Dogecoin,
+    // /// It follows the same unlocking methods used by EOS.
+    // Eos,
+    // /// It follows the same unlocking methods used by Tron.
+    // Tron,
+    // /// It follows the same unlocking methods used by Bitcoin
+    // Bitcoin,
+    // ///  It follows the same unlocking methods used by Dogecoin.
+    // Dogecoin,
     /// It follows the same unlocking method used by CKB MultiSig.
     Multisig(MultiSigArgs),
-
-    /// The auth content that represents the blake160 hash of a lock script.
-    /// The lock script will check if the current transaction contains an input cell with a matching lock script.
-    /// Otherwise, it would return with an error. It's similar to P2SH in BTC.
-    OwnerLock,
-    /// The auth content that represents the blake160 hash of a preimage.
-    /// The preimage contains exec information that is used to delegate signature verification to another script via exec.
-    Exec,
-    /// The auth content that represents the blake160 hash of a preimage.
-    /// The preimage contains dynamic linking information that is used to delegate signature verification to the dynamic linking script.
-    /// The interface described in Swappable Signature Verification Protocol Spec is used here.
-    Dl,
+    // /// The auth content that represents the blake160 hash of a lock script.
+    // /// The lock script will check if the current transaction contains an input cell with a matching lock script.
+    // /// Otherwise, it would return with an error. It's similar to P2SH in BTC.
+    // OwnerLock,
+    // /// The auth content that represents the blake160 hash of a preimage.
+    // /// The preimage contains exec information that is used to delegate signature verification to another script via exec.
+    // Exec,
+    // /// The auth content that represents the blake160 hash of a preimage.
+    // /// The preimage contains dynamic linking information that is used to delegate signature verification to the dynamic linking script.
+    // /// The interface described in Swappable Signature Verification Protocol Spec is used here.
+    // Dl,
 }
 
 pub(crate) fn build_omnilock_addr(cmds: &BuildAddress, env: &ConfigContext) -> Result<()> {
@@ -81,7 +80,6 @@ pub(crate) fn build_omnilock_addr(cmds: &BuildAddress, env: &ConfigContext) -> R
         BuildAddress::Multisig(args) => {
             build_multisig_addr(args, env)?;
         }
-        _ => unreachable!("the action is not supported yet"),
     };
     Ok(())
 }

@@ -2,7 +2,34 @@ use std::{fs, path::PathBuf, str::FromStr};
 
 use anyhow::{anyhow, ensure, Context, Result};
 use ckb_types::H256;
+use clap::Subcommand;
 use yaml_rust::YamlLoader;
+
+use crate::client::build_omnilock_cell_dep;
+
+#[derive(Subcommand)]
+pub(crate) enum ConfigCmds {
+    /// Init an empty configure file
+    Init,
+    /// Check if the configure file correct
+    Check,
+}
+pub(crate) fn handle_config_cmds(cmds: &ConfigCmds, path: &str) -> Result<()> {
+    match cmds {
+        ConfigCmds::Init => {
+            ConfigContext::write_template(path).map(|_| {
+                println!(
+                    "The template file {} generated, please fill it with the correct content.",
+                    path
+                );
+            })?;
+        }
+        ConfigCmds::Check => {
+            ConfigContext::check(path)?;
+        }
+    };
+    Ok(())
+}
 
 pub struct ConfigContext {
     pub omnilock_tx_hash: H256,
@@ -101,6 +128,18 @@ impl ConfigContext {
             file_path
         );
         fs::write(path, TEMPLATE_CONFIG)?;
+        Ok(())
+    }
+
+    pub fn check(path: &str) -> Result<()> {
+        let env = Self::parse(path)?;
+
+        build_omnilock_cell_dep(
+            env.ckb_rpc.as_str(),
+            &env.omnilock_tx_hash,
+            env.omnilock_index,
+        )?;
+        println!("the configure file `{0}` is ok!", path);
         Ok(())
     }
 }
