@@ -16,7 +16,7 @@ use ckb_types::H256;
 use clap::{Args, Parser, Subcommand};
 use config::{handle_config_cmds, ConfigCmds, ConfigContext};
 use generate::{generate_transfer_tx, GenerateTx};
-use sign::{sign_tx, SignTxArgs};
+use sign::{sign_tx, SignCmd};
 
 use crate::{build_addr::build_omnilock_addr, txinfo::TxInfo};
 
@@ -52,7 +52,8 @@ enum Commands {
     #[clap(subcommand)]
     GenerateTx(GenerateTx),
     /// Sign the transaction
-    Sign(SignTxArgs),
+    #[clap(subcommand)]
+    Sign(SignCmd),
     /// Send the transaction
     Send {
         /// The transaction info file (.json)
@@ -93,9 +94,9 @@ fn main() -> Result<()> {
             let config = ConfigContext::parse(&cli.config)?;
             generate_transfer_tx(&cmds, &config)?;
         }
-        Commands::Sign(args) => {
+        Commands::Sign(cmds) => {
             let config = ConfigContext::parse(&cli.config)?;
-            sign_tx(&args, &config)?;
+            sign_tx(&cmds, &config)?;
         }
         Commands::Send { tx_file } => {
             let config = ConfigContext::parse(&cli.config)?;

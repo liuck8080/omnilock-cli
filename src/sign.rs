@@ -1,9 +1,11 @@
+use ckb_crypto::secp::Pubkey;
 use ckb_hash::blake2b_256;
 use ckb_jsonrpc_types as json_types;
 use ckb_sdk::{
     traits::DefaultTransactionDependencyProvider,
     tx_builder::unlock_tx,
     unlock::{OmniLockConfig, OmniUnlockMode},
+    util::keccak160,
     ScriptGroup, SECP256K1,
 };
 use ckb_types::{
@@ -13,7 +15,7 @@ use ckb_types::{
     prelude::*,
     H160, H256,
 };
-use clap::Args;
+use clap::{Args, Subcommand};
 use rpassword::prompt_password_stdout;
 use std::fs;
 use std::path::PathBuf;
@@ -25,7 +27,7 @@ use crate::{
 use anyhow::{bail, Context, Result};
 
 #[derive(Args)]
-pub struct SignTxArgs {
+pub struct SignTxPubkeyHashArgs {
     /// The sender private key (hex string)
     #[clap(long, value_name = "PRIV_KEY")]
     pub sender_key: Option<H256>,
@@ -37,7 +39,47 @@ pub struct SignTxArgs {
     pub tx_file: PathBuf,
 }
 
-pub fn sign_tx(args: &SignTxArgs, env: &ConfigContext) -> Result<()> {
+#[derive(Args)]
+pub struct EthereumArgs {
+    /// The sender private key (hex string)
+    #[clap(long, value_name = "KEY")]
+    sender_key: H256,
+
+    /// The output transaction info file (.json)
+    #[clap(long, value_name = "PATH")]
+    tx_file: PathBuf,
+}
+
+#[derive(Args)]
+pub struct SignTxMultisigArgs {
+    /// The sender private key (hex string)
+    #[clap(long, value_name = "KEY", multiple_values = true)]
+    sender_key: Vec<H256>,
+
+    /// The output transaction info file (.json)
+    #[clap(long, value_name = "PATH")]
+    tx_file: PathBuf,
+}
+
+#[derive(Subcommand)]
+pub enum SignCmd {
+    /// to sign a transaction from pubkey hash omnilock cell
+    PubkeyHash(SignTxPubkeyHashArgs),
+    /// to sign a transaction from ethereum omnilock cell
+    Ethereum(EthereumArgs),
+    /// to sign a transaction from multisig omnilock cell
+    Multisig(SignTxMultisigArgs),
+}
+
+pub fn sign_tx(cmds: &SignCmd, env: &ConfigContext) -> Result<()> {
+    match cmds {
+        SignCmd::PubkeyHash(args) => sign_pubkey_hash_tx(args, env),
+        SignCmd::Ethereum(args) => sign_ethereum_tx(args, env),
+        SignCmd::Multisig(args) => sign_multisig_tx(args, env),
+    }
+}
+
+fn sign_pubkey_hash_tx(args: &SignTxPubkeyHashArgs, env: &ConfigContext) -> Result<()> {
     let tx_info: TxInfo = serde_json::from_slice(&fs::read(&args.tx_file)?)?;
     let tx = Transaction::from(tx_info.transaction).into_view();
 
@@ -60,7 +102,7 @@ pub fn sign_tx(args: &SignTxArgs, env: &ConfigContext) -> Result<()> {
             hex_string(hash160)
         );
     }
-    let (tx, _) = sign_tx_(tx, &tx_info.omnilock_config, key, env)?;
+    let (tx, _) = sign_tx_(tx, &tx_info.omnilock_config, vec![key], env)?;
     let witness_args = WitnessArgs::from_slice(tx.witnesses().get(0).unwrap().raw_data().as_ref())?;
     let lock_field = witness_args.lock().to_opt().unwrap().raw_data();
     if lock_field != tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)? {
@@ -76,10 +118,65 @@ pub fn sign_tx(args: &SignTxArgs, env: &ConfigContext) -> Result<()> {
     Ok(())
 }
 
+fn sign_ethereum_tx(args: &EthereumArgs, env: &ConfigContext) -> Result<()> {
+    let tx_info: TxInfo = serde_json::from_slice(&fs::read(&args.tx_file)?)?;
+    let tx = Transaction::from(tx_info.transaction).into_view();
+    let key = secp256k1::SecretKey::from_slice(args.sender_key.as_bytes())
+        .with_context(|| format!("invalid sender secret key: {}", args.sender_key))?;
+    let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &key);
+    let pubkey = Pubkey::from(pubkey);
+    let hash160 = keccak160(pubkey.as_ref());
+    if tx_info.omnilock_config.id().auth_content().as_bytes() != hash160.as_bytes() {
+        bail!("can not find hash {:#x} in omnilock config", hash160);
+    }
+    let (tx, _) = sign_tx_(tx, &tx_info.omnilock_config, vec![key], env)?;
+    let witness_args = WitnessArgs::from_slice(tx.witnesses().get(0).unwrap().raw_data().as_ref())?;
+    let lock_field = witness_args.lock().to_opt().unwrap().raw_data();
+    if lock_field != tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)? {
+        println!("> transaction ready to send!");
+    } else {
+        println!("failed to sign tx");
+    }
+    let tx_info = TxInfo {
+        transaction: json_types::Transaction::from(tx.data()),
+        omnilock_config: tx_info.omnilock_config,
+    };
+    fs::write(&args.tx_file, serde_json::to_string_pretty(&tx_info)?)?;
+    Ok(())
+}
+
+fn sign_multisig_tx(args: &SignTxMultisigArgs, env: &ConfigContext) -> Result<()> {
+    let tx_info: TxInfo = serde_json::from_slice(&fs::read(&args.tx_file)?)?;
+    let tx = Transaction::from(tx_info.transaction).into_view();
+    let keys: Vec<_> = args
+        .sender_key
+        .iter()
+        .map(|sender_key| {
+            secp256k1::SecretKey::from_slice(sender_key.as_bytes())
+                .map_err(|err| format!("invalid sender secret key: {}", err))
+                .unwrap()
+        })
+        .collect();
+    let (tx, _) = sign_tx_(tx, &tx_info.omnilock_config, keys, env)?;
+    let witness_args = WitnessArgs::from_slice(tx.witnesses().get(0).unwrap().raw_data().as_ref())?;
+    let lock_field = witness_args.lock().to_opt().unwrap().raw_data();
+    if lock_field != tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)? {
+        println!("> transaction signed!");
+    } else {
+        println!("failed to sign tx");
+    }
+    let tx_info = TxInfo {
+        transaction: json_types::Transaction::from(tx.data()),
+        omnilock_config: tx_info.omnilock_config,
+    };
+    fs::write(&args.tx_file, serde_json::to_string_pretty(&tx_info)?)?;
+    Ok(())
+}
+
 fn sign_tx_(
     mut tx: TransactionView,
     omnilock_config: &OmniLockConfig,
-    key: secp256k1::SecretKey,
+    keys: Vec<secp256k1::SecretKey>,
     env: &ConfigContext,
 ) -> Result<(TransactionView, Vec<ScriptGroup>)> {
     // Unlock transaction
@@ -92,7 +189,7 @@ fn sign_tx_(
     )?;
 
     let mut _still_locked_groups = None;
-    let unlockers = build_omnilock_unlockers(vec![key], omnilock_config.clone(), cell.type_hash);
+    let unlockers = build_omnilock_unlockers(keys, omnilock_config.clone(), cell.type_hash);
     let (new_tx, new_still_locked_groups) = unlock_tx(tx.clone(), &tx_dep_provider, &unlockers)?;
     tx = new_tx;
     _still_locked_groups = Some(new_still_locked_groups);

@@ -31,7 +31,7 @@ use crate::{
 use anyhow::{Context, Result};
 use std::fs;
 #[derive(Args)]
-pub struct PubkeyHashArgs {
+pub struct GeneratePubkeyHashArgs {
     /// The sender private key (hex string)
     #[clap(long, value_name = "KEY")]
     sender_key: H256,
@@ -56,7 +56,7 @@ pub struct CommonArgs {
 }
 
 #[derive(Args)]
-pub struct MultiSigArgs {
+pub struct GenerateMultiSigArgs {
     /// Require first n signatures of corresponding pubkey
     #[clap(long, value_name = "NUM")]
     require_first_n: u8,
@@ -74,7 +74,7 @@ pub struct MultiSigArgs {
 }
 
 #[derive(Args)]
-pub struct EthereumArgs {
+pub struct GenerateEthereumArgs {
     /// The sender private key (hex string)
     #[clap(long, value_name = "KEY")]
     sender_key: H256,
@@ -85,11 +85,11 @@ pub struct EthereumArgs {
 #[derive(Subcommand)]
 pub enum GenerateTx {
     /// to generate a transaction from pubkey hash omnilock cell
-    PubkeyHash(PubkeyHashArgs),
+    PubkeyHash(GeneratePubkeyHashArgs),
     /// to generate a transaction from ethereum omnilock cell
-    Ethereum(EthereumArgs),
+    Ethereum(GenerateEthereumArgs),
     /// to generate a transaction from multisig omnilock cell
-    Multisig(MultiSigArgs),
+    Multisig(GenerateMultiSigArgs),
 }
 
 pub fn generate_transfer_tx(cmds: &GenerateTx, env: &ConfigContext) -> Result<()> {
@@ -108,7 +108,7 @@ pub fn generate_transfer_tx(cmds: &GenerateTx, env: &ConfigContext) -> Result<()
 }
 
 fn build_pubkeyhash_transfer_tx(
-    args: &PubkeyHashArgs,
+    args: &GeneratePubkeyHashArgs,
     env: &ConfigContext,
 ) -> Result<(TransactionView, OmniLockConfig, PathBuf)> {
     let sender_key =
@@ -202,7 +202,7 @@ fn build_transfer_tx_(
 }
 
 fn build_ethereum_transfer_tx(
-    args: &EthereumArgs,
+    args: &GenerateEthereumArgs,
     env: &ConfigContext,
 ) -> Result<(TransactionView, OmniLockConfig, PathBuf)> {
     let sender_key = secp256k1::SecretKey::from_slice(args.sender_key.as_bytes())?;
@@ -214,7 +214,7 @@ fn build_ethereum_transfer_tx(
 }
 
 fn build_multisig_transfer_tx(
-    args: &MultiSigArgs,
+    args: &GenerateMultiSigArgs,
     env: &ConfigContext,
 ) -> Result<(TransactionView, OmniLockConfig, PathBuf)> {
     let multisig_config =
