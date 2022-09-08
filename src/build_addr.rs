@@ -141,7 +141,7 @@ fn build_addr_with_omnilock_conf(config: &OmniLockConfig, env: &ConfigContext) -
     Ok(())
 }
 
-fn build_multisig_config(
+pub fn build_multisig_config(
     sighash_address: &[Address],
     require_first_n: u8,
     threshold: u8,

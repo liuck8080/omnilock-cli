@@ -84,8 +84,9 @@ omnilock-cli build-address ethereum --receiver-pubkey 038d3cfceea4f9c2e76c5c4f5e
 omnilock-cli build-address ethereum --receiver-pubkey 048d3cfceea4f9c2e76c5c4f5e99aec74c26d6ac894648b5700a0b71f91f9b5c2a26b16aac1d5753e56849ea83bf795eb8b06f0b6f4e5ed7b8caca720595458039
 ```
 
-# auto transfer(draft)
+# simple transfer(draft)
 This kind of transaction is suitable of unlock value of the cell.
+## simple transfer from pubkey hash omnilock cell.
 1. build the address.
 ```bash
 omnilock-cli build-address pubkey-hash --receiver ckt1qyqt8xpk328d89zgl928nsgh3lelch33vvvq5u3024
@@ -104,7 +105,7 @@ ckb-cli wallet get-live-cells --address ckt1qqklkz85v4xt39ws5dd2hdv8xsy4jnpe3env
 4. generate transaction
 ```bash
 # 8dadf1939b89919ca74b58fef41c0d4ec70cd6a7b093a0c8ca5b268f93b8181f is private key of address ckt1qyqt8xpk328d89zgl928nsgh3lelch33vvvq5u3024
-omnilock-cli generate-tx --capacity 98.99999588 --receiver ckt1qyqy68e02pll7qd9m603pqkdr29vw396h6dq50reug --sender-key 8dadf1939b89919ca74b58fef41c0d4ec70cd6a7b093a0c8ca5b268f93b8181f --tx-file tx.json
+omnilock-cli generate-tx pubkey-hash --capacity 98.99999588 --receiver ckt1qyqy68e02pll7qd9m603pqkdr29vw396h6dq50reug --sender-key 8dadf1939b89919ca74b58fef41c0d4ec70cd6a7b093a0c8ca5b268f93b8181f --tx-file tx.json
 ```
 
 5. sign the transaction
@@ -122,7 +123,7 @@ omnilock-cli generate-tx --capacity 98.99999588 --receiver ckt1qyqy68e02pll7qd9m
 omnilock-cli send --tx-file tx.json
 # >>> tx ac2cce746764cf9ecad7eefb82d24f8bcf5eb4708c65dde562bf96c86bbad831 sent! <<<
 ```
-# manual transfer
+# manual transfer(todo)
 ## init empty transaction
 ## add input
 ## add output

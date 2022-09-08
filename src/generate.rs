@@ -22,16 +22,26 @@ use ckb_types::{
     prelude::*,
     H256,
 };
-use clap::Args;
+use clap::{Args, Subcommand};
 
-use crate::{client::build_omnilock_cell_dep_from_client, config::ConfigContext, txinfo::TxInfo};
+use crate::{
+    build_addr::build_multisig_config, client::build_omnilock_cell_dep_from_client,
+    config::ConfigContext, txinfo::TxInfo,
+};
 use anyhow::{Context, Result};
 use std::fs;
 #[derive(Args)]
-pub struct GenTxArgs {
+pub struct PubkeyHashArgs {
     /// The sender private key (hex string)
     #[clap(long, value_name = "KEY")]
     sender_key: H256,
+
+    #[clap(flatten)]
+    common_args: CommonArgs,
+}
+
+#[derive(Args)]
+pub struct CommonArgs {
     /// The receiver address
     #[clap(long, value_name = "ADDRESS")]
     receiver: Address,
@@ -45,20 +55,62 @@ pub struct GenTxArgs {
     tx_file: PathBuf,
 }
 
-pub fn generate_transfer_tx(args: &GenTxArgs, env: &ConfigContext) -> Result<()> {
-    let (tx, omnilock_config) = build_transfer_tx(args, env)?;
+#[derive(Args)]
+pub struct MultiSigArgs {
+    /// Require first n signatures of corresponding pubkey
+    #[clap(long, value_name = "NUM")]
+    require_first_n: u8,
+
+    /// Multisig threshold
+    #[clap(long, value_name = "NUM")]
+    threshold: u8,
+
+    /// Normal sighash address
+    #[clap(long, value_name = "ADDRESS", multiple_values = true)]
+    sighash_address: Vec<Address>,
+
+    #[clap(flatten)]
+    common_args: CommonArgs,
+}
+
+#[derive(Args)]
+pub struct EthereumArgs {
+    /// The sender private key (hex string)
+    #[clap(long, value_name = "KEY")]
+    sender_key: H256,
+
+    #[clap(flatten)]
+    common_args: CommonArgs,
+}
+#[derive(Subcommand)]
+pub enum GenerateTx {
+    /// to generate a transaction from pubkey hash omnilock cell
+    PubkeyHash(PubkeyHashArgs),
+    /// to generate a transaction from ethereum omnilock cell
+    Ethereum(EthereumArgs),
+    /// to generate a transaction from multisig omnilock cell
+    Multisig(MultiSigArgs),
+}
+
+pub fn generate_transfer_tx(cmds: &GenerateTx, env: &ConfigContext) -> Result<()> {
+    let (tx, omnilock_config, tx_file) = match cmds {
+        GenerateTx::PubkeyHash(args) => build_pubkeyhash_transfer_tx(args, env)?,
+        GenerateTx::Ethereum(args) => build_ethereum_transfer_tx(args, env)?,
+        GenerateTx::Multisig(args) => build_multisig_transfer_tx(args, env)?,
+    };
+
     let tx_info = TxInfo {
         transaction: json_types::TransactionView::from(tx).inner,
         omnilock_config,
     };
-    fs::write(&args.tx_file, serde_json::to_string_pretty(&tx_info)?)?;
+    fs::write(tx_file, serde_json::to_string_pretty(&tx_info)?)?;
     Ok(())
 }
 
-fn build_transfer_tx(
-    args: &GenTxArgs,
+fn build_pubkeyhash_transfer_tx(
+    args: &PubkeyHashArgs,
     env: &ConfigContext,
-) -> Result<(TransactionView, OmniLockConfig)> {
+) -> Result<(TransactionView, OmniLockConfig, PathBuf)> {
     let sender_key =
         secp256k1::SecretKey::from_slice(args.sender_key.as_bytes()).with_context(|| {
             format!(
@@ -67,13 +119,22 @@ fn build_transfer_tx(
             )
         })?;
     let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &sender_key);
+
+    let omnilock_config = OmniLockConfig::new_pubkey_hash(&pubkey.into());
+    build_transfer_tx_(&args.common_args, env, omnilock_config)
+}
+
+fn build_transfer_tx_(
+    args: &CommonArgs,
+    env: &ConfigContext,
+    omnilock_config: OmniLockConfig,
+) -> Result<(TransactionView, OmniLockConfig, PathBuf)> {
     let mut ckb_client = CkbRpcClient::new(env.ckb_rpc.as_str());
     let cell = build_omnilock_cell_dep_from_client(
         &mut ckb_client,
         &env.omnilock_tx_hash,
         env.omnilock_index,
     )?;
-    let omnilock_config = OmniLockConfig::new_pubkey_hash(&pubkey.into());
     // Build CapacityBalancer
     let sender = Script::new_builder()
         .code_hash(cell.type_hash.pack())
@@ -137,7 +198,30 @@ fn build_transfer_tx(
         &header_dep_resolver,
     )
     .with_context(|| "try to balance capacity".to_string())?;
-    Ok((tx, omnilock_config))
+    Ok((tx, omnilock_config, args.tx_file.clone()))
+}
+
+fn build_ethereum_transfer_tx(
+    args: &EthereumArgs,
+    env: &ConfigContext,
+) -> Result<(TransactionView, OmniLockConfig, PathBuf)> {
+    let sender_key = secp256k1::SecretKey::from_slice(args.sender_key.as_bytes())?;
+    let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &sender_key);
+    println!("pubkey:{:?}", hex_string(&pubkey.serialize()));
+    println!("pubkey:{:?}", hex_string(&pubkey.serialize_uncompressed()));
+    let omnilock_config = OmniLockConfig::new_ethereum(&pubkey.into());
+    build_transfer_tx_(&args.common_args, env, omnilock_config)
+}
+
+fn build_multisig_transfer_tx(
+    args: &MultiSigArgs,
+    env: &ConfigContext,
+) -> Result<(TransactionView, OmniLockConfig, PathBuf)> {
+    let multisig_config =
+        build_multisig_config(&args.sighash_address, args.require_first_n, args.threshold)?;
+
+    let omnilock_config = OmniLockConfig::new_multisig(multisig_config);
+    build_transfer_tx_(&args.common_args, env, omnilock_config)
 }
 
 pub fn build_omnilock_unlockers(

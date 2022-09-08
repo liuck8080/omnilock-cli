@@ -15,7 +15,7 @@ use ckb_sdk::CkbRpcClient;
 use ckb_types::H256;
 use clap::{Args, Parser, Subcommand};
 use config::{handle_config_cmds, ConfigCmds, ConfigContext};
-use generate::{generate_transfer_tx, GenTxArgs};
+use generate::{generate_transfer_tx, GenerateTx};
 use sign::{sign_tx, SignTxArgs};
 
 use crate::{build_addr::build_omnilock_addr, txinfo::TxInfo};
@@ -49,7 +49,8 @@ enum Commands {
     #[clap(subcommand)]
     BuildAddress(BuildAddress),
     /// generate a transaction not signed yet
-    GenerateTx(GenTxArgs),
+    #[clap(subcommand)]
+    GenerateTx(GenerateTx),
     /// Sign the transaction
     Sign(SignTxArgs),
     /// Send the transaction
@@ -88,9 +89,9 @@ fn main() -> Result<()> {
             let config = ConfigContext::parse(&cli.config)?;
             build_omnilock_addr(&cmds, &config)?;
         }
-        Commands::GenerateTx(args) => {
+        Commands::GenerateTx(cmds) => {
             let config = ConfigContext::parse(&cli.config)?;
-            generate_transfer_tx(&args, &config)?;
+            generate_transfer_tx(&cmds, &config)?;
         }
         Commands::Sign(args) => {
             let config = ConfigContext::parse(&cli.config)?;
