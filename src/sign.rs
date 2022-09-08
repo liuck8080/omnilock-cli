@@ -8,26 +8,30 @@ use ckb_sdk::{
 };
 use ckb_types::{
     core::TransactionView,
+    molecule::hex_string,
     packed::{Transaction, WitnessArgs},
     prelude::*,
-    H256,
+    H160, H256,
 };
 use clap::Args;
+use rpassword::prompt_password_stdout;
 use std::fs;
 use std::path::PathBuf;
 
 use crate::{
     client::build_omnilock_cell_dep, config::ConfigContext, generate::build_omnilock_unlockers,
-    txinfo::TxInfo,
+    keystore::CkbKeyStore, txinfo::TxInfo,
 };
 use anyhow::{bail, Context, Result};
 
 #[derive(Args)]
 pub struct SignTxArgs {
     /// The sender private key (hex string)
-    #[clap(long, value_name = "KEY")]
-    pub sender_key: H256,
-
+    #[clap(long, value_name = "PRIV_KEY")]
+    pub sender_key: Option<H256>,
+    /// the unlock account
+    #[clap(long, value_name = "ACCOUNT")]
+    pub from_account: Option<H160>,
     /// The output transaction info file (.json)
     #[clap(long, value_name = "PATH")]
     pub tx_file: PathBuf,
@@ -36,12 +40,25 @@ pub struct SignTxArgs {
 pub fn sign_tx(args: &SignTxArgs, env: &ConfigContext) -> Result<()> {
     let tx_info: TxInfo = serde_json::from_slice(&fs::read(&args.tx_file)?)?;
     let tx = Transaction::from(tx_info.transaction).into_view();
-    let key = secp256k1::SecretKey::from_slice(args.sender_key.as_bytes())
-        .with_context(|| format!("invalid sender secret key: {}", args.sender_key))?;
+
+    let key = if let Some(sender_key) = args.sender_key.as_ref() {
+        secp256k1::SecretKey::from_slice(sender_key.as_bytes())
+            .with_context(|| format!("invalid sender secret key: {}", sender_key))?
+    } else if let Some(from_account) = args.from_account.as_ref() {
+        let prompt = "Password";
+        let pass = prompt_password_stdout(format!("{}: ", prompt).as_str())?;
+
+        CkbKeyStore::load_default()?.export_priv_key(from_account, pass.as_bytes())?
+    } else {
+        bail!("must provide one of sender_key(private key) or an account!");
+    };
     let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &key);
     let hash160 = &blake2b_256(&pubkey.serialize()[..])[0..20];
     if tx_info.omnilock_config.id().auth_content().as_bytes() != hash160 {
-        bail!("key {:#x} is not in omnilock config", args.sender_key);
+        bail!(
+            "can not find hash {} in omnilock config",
+            hex_string(hash160)
+        );
     }
     let (tx, _) = sign_tx_(tx, &tx_info.omnilock_config, key, env)?;
     let witness_args = WitnessArgs::from_slice(tx.witnesses().get(0).unwrap().raw_data().as_ref())?;

@@ -13,11 +13,13 @@ ckb-hash = "=0.104.0"
 ckb-jsonrpc-types = "=0.104.0"
 # ckb-sdk = "1.0.1"
 ckb-sdk = { git = "https://github.com/nervosnetwork/ckb-sdk-rust.git", branch = "master" }
+ckb-signer = "0.2.0"
 ckb-types = "=0.104.0"
 
 dirs = "1.0.5"
 anyhow = "1.0"
 
+rpassword = "3.0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_derive = "1.0"
 serde_json = "1.0"

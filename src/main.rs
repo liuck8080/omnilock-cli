@@ -2,6 +2,7 @@ mod build_addr;
 mod client;
 mod config;
 mod generate;
+mod keystore;
 mod sign;
 mod txinfo;
 

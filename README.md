@@ -108,9 +108,15 @@ omnilock-cli generate-tx --capacity 98.99999588 --receiver ckt1qyqy68e02pll7qd9m
 ```
 
 5. sign the transaction
-```bash
-omnilock-cli generate-tx --capacity 98.99999588 --receiver ckt1qyqy68e02pll7qd9m603pqkdr29vw396h6dq50reug --sender-key 8dadf1939b89919ca74b58fef41c0d4ec70cd6a7b093a0c8ca5b268f93b8181f --tx-file tx.json
-```
+   
+  - sign with according private key
+  ```bash
+  omnilock-cli sign --tx-file tx.json --sender-key 8dadf1939b89919ca74b58fef41c0d4ec70cd6a7b093a0c8ca5b268f93b8181f
+  ```
+  - sign the with according account
+  ```bash
+ omnilock-cli sign --tx-file tx.json --from-account b398368a8ed39448f95479c1178ff3fc5e316318
+  ```
 6. send the transaction
 ```bash
 omnilock-cli send --tx-file tx.json
