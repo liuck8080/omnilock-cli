@@ -109,20 +109,77 @@ omnilock-cli generate-tx pubkey-hash --capacity 98.99999588 --receiver ckt1qyqy6
 ```
 
 5. sign the transaction
-   
+
   - sign with according private key
   ```bash
-  omnilock-cli sign --tx-file tx.json --sender-key 8dadf1939b89919ca74b58fef41c0d4ec70cd6a7b093a0c8ca5b268f93b8181f
+  omnilock-cli sign pubkey-hash --tx-file tx.json --sender-key 8dadf1939b89919ca74b58fef41c0d4ec70cd6a7b093a0c8ca5b268f93b8181f
   ```
   - sign the with according account
   ```bash
- omnilock-cli sign --tx-file tx.json --from-account b398368a8ed39448f95479c1178ff3fc5e316318
+  omnilock-cli sign pubkey-hash --tx-file tx.json --from-account b398368a8ed39448f95479c1178ff3fc5e316318
   ```
 6. send the transaction
 ```bash
 omnilock-cli send --tx-file tx.json
 # >>> tx ac2cce746764cf9ecad7eefb82d24f8bcf5eb4708c65dde562bf96c86bbad831 sent! <<<
 ```
+
+## simple transfer from multisig omnilock cell.
+1. build the address.
+```bash
+omnilock-cli build-address multisig --require-first-n 0 --threshold 2 \
+                                    --sighash-address ckt1qyqt8xpk328d89zgl928nsgh3lelch33vvvq5u3024 \
+                                    --sighash-address ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37 \
+                                    --sighash-address ckt1qyqywrwdchjyqeysjegpzw38fvandtktdhrs0zaxl4
+```
+result:
+```json
+{
+  "lock-arg": "0x065d7d0128eeaa6f9656a229b42aadd0b177d387eb00",
+  "lock-hash": "0xd93312782194cdb1a23dd73128795fd6a71ceb067ea9fd10546b95853d45f08e",
+  "mainnet": "ckb1qqklkz85v4xt39ws5dd2hdv8xsy4jnpe3envjzvddqecxr0mgvrksqgxt47sz28w4fhev44z9x6z4twsk9ma8pltqqad8v6p",
+  "testnet": "ckt1qqklkz85v4xt39ws5dd2hdv8xsy4jnpe3envjzvddqecxr0mgvrksqgxt47sz28w4fhev44z9x6z4twsk9ma8pltqqx6nqmf"
+}
+```
+2. transfer capacity to this address(optional), be careful about the `--skip-check-to-address` parameter, double check the receiver's address.
+```bash
+ ckb-cli wallet transfer --from-account 0xc8328aabcd9b9e8e64fbc566c4385c3bdeb219d7 \
+  --to-address ckt1qqklkz85v4xt39ws5dd2hdv8xsy4jnpe3envjzvddqecxr0mgvrksqgxt47sz28w4fhev44z9x6z4twsk9ma8pltqqx6nqmf \
+  --capacity 99 --skip-check-to-address
+```
+3. get live cells of the address
+```bash
+ckb-cli wallet get-live-cells --address ckt1qqklkz85v4xt39ws5dd2hdv8xsy4jnpe3envjzvddqecxr0mgvrksqgxt47sz28w4fhev44z9x6z4twsk9ma8pltqqx6nqmf
+```
+
+4. generate transaction
+```bash
+ omnilock-cli generate-tx multisig --threshold 2 \
+  --require-first-n 0 \
+  --receiver ckt1qyqy68e02pll7qd9m603pqkdr29vw396h6dq50reug \
+  --capacity 99.98 \
+  --sighash-address ckt1qyqt8xpk328d89zgl928nsgh3lelch33vvvq5u3024 \
+  --sighash-address ckt1qyqvsv5240xeh85wvnau2eky8pwrhh4jr8ts8vyj37 \
+  --sighash-address ckt1qyqywrwdchjyqeysjegpzw38fvandtktdhrs0zaxl4 \
+  --tx-file tx.json
+```
+
+5. sign the transaction
+
+  - sign with according first private key
+  ```bash
+  omnilock-cli sign multisig --sender-key 8dadf1939b89919ca74b58fef41c0d4ec70cd6a7b093a0c8ca5b268f93b8181f --tx-file tx.json
+  ```
+  - sign with the second according private key
+  ```bash
+  omnilock-cli sign multisig --sender-key d00c06bfd800d27397002dca6fb0993d5ba6399b4238b2f29ee9deb97593d2bc --tx-file tx.json
+  ```
+6. send the transaction
+```bash
+omnilock-cli send --tx-file tx.json
+# >>> tx 1a4e1f8bfa22abf5f1851f894a0873f5553d3396a3794caa015b5c276345f630 sent! <<<
+```
+
 # manual transfer(todo)
 ## init empty transaction
 ## add input
