@@ -229,7 +229,11 @@ pub fn build_omnilock_unlockers(
     config: OmniLockConfig,
     omni_lock_type_hash: H256,
 ) -> HashMap<ScriptId, Box<dyn ScriptUnlocker>> {
-    let signer = SecpCkbRawKeySigner::new_with_secret_keys(keys);
+    let signer = if config.is_ethereum() {
+        SecpCkbRawKeySigner::new_with_ethereum_secret_keys(keys)
+    } else {
+        SecpCkbRawKeySigner::new_with_secret_keys(keys)
+    };
     let omnilock_signer =
         OmniLockScriptSigner::new(Box::new(signer), config.clone(), OmniUnlockMode::Normal);
     let omnilock_unlocker = OmniLockUnlocker::new(omnilock_signer, config);

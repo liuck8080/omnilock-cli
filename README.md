@@ -180,6 +180,53 @@ omnilock-cli send --tx-file tx.json
 # >>> tx 1a4e1f8bfa22abf5f1851f894a0873f5553d3396a3794caa015b5c276345f630 sent! <<<
 ```
 
+## simple transfer from ethereum omnilock cell.
+1. build the address.
+```bash
+ omnilock-cli build-address ethereum --receiver-privkey 63d86723e08f0f813a36ce6aa123bb2289d90680ae1e99d4de8cdb334553f24d                                                                                                                    
+```
+result:
+```json
+pubkey:"038d3cfceea4f9c2e76c5c4f5e99aec74c26d6ac894648b5700a0b71f91f9b5c2a"
+pubkey:"048d3cfceea4f9c2e76c5c4f5e99aec74c26d6ac894648b5700a0b71f91f9b5c2a26b16aac1d5753e56849ea83bf795eb8b06f0b6f4e5ed7b8caca720595458039"
+{
+  "lock-arg": "0x01cf2485c76aff1f2b4464edf04a1c8045068cf7e000",
+  "lock-hash": "0x04b791304bbd6287218acc9e4b0971789ea1ef52b758317481245913511c6159",
+  "mainnet": "ckb1qqklkz85v4xt39ws5dd2hdv8xsy4jnpe3envjzvddqecxr0mgvrksqgpeujgt3m2lu0jk3ryahcy58yqg5rgealqqq5yzrqv",
+  "testnet": "ckt1qqklkz85v4xt39ws5dd2hdv8xsy4jnpe3envjzvddqecxr0mgvrksqgpeujgt3m2lu0jk3ryahcy58yqg5rgealqqq0nk0py"
+}
+```
+2. transfer capacity to this address(optional), be careful about the `--skip-check-to-address` parameter, double check the receiver's address.
+```bash
+ ckb-cli wallet transfer --from-account 0xc8328aabcd9b9e8e64fbc566c4385c3bdeb219d7 \
+  --to-address ckt1qqklkz85v4xt39ws5dd2hdv8xsy4jnpe3envjzvddqecxr0mgvrksqgpeujgt3m2lu0jk3ryahcy58yqg5rgealqqq0nk0py \
+  --capacity 99 --skip-check-to-address
+```
+3. get live cells of the address
+```bash
+ckb-cli wallet get-live-cells --address ckt1qqklkz85v4xt39ws5dd2hdv8xsy4jnpe3envjzvddqecxr0mgvrksqgpeujgt3m2lu0jk3ryahcy58yqg5rgealqqq0nk0py
+```
+
+4. generate transaction
+```bash
+omnilock-cli generate-tx ethereum  --sender-key 63d86723e08f0f813a36ce6aa123bb2289d90680ae1e99d4de8cdb334553f24d \                                                                                                                               15:06:28
+                                   --receiver ckt1qyqy68e02pll7qd9m603pqkdr29vw396h6dq50reug \
+                                   --capacity 99.9999 \
+                                   --tx-file tx.json
+```
+
+5. sign the transaction
+  ````bash
+  omnilock-cli sign ethereum --sender-key  63d86723e08f0f813a36ce6aa123bb2289d90680ae1e99d4de8cdb334553f24d \                                                                                                                                      15:08:30
+                                   --tx-file tx.json
+  ````
+6. send the transaction
+```bash
+omnilock-cli send --tx-file tx.json
+# >>> tx 1688385f41c791f2ddae49c00064c7fcc260ba504558e7487d67ea86405fe582 sent! <<<
+```
+
+
 # manual transfer(todo)
 ## init empty transaction
 ## add input

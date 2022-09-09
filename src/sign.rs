@@ -102,10 +102,12 @@ fn sign_pubkey_hash_tx(args: &SignTxPubkeyHashArgs, env: &ConfigContext) -> Resu
             hex_string(hash160)
         );
     }
-    let (tx, _) = sign_tx_(tx, &tx_info.omnilock_config, vec![key], env)?;
+    let (tx, still_locked_groups) = sign_tx_(tx, &tx_info.omnilock_config, vec![key], env)?;
     let witness_args = WitnessArgs::from_slice(tx.witnesses().get(0).unwrap().raw_data().as_ref())?;
     let lock_field = witness_args.lock().to_opt().unwrap().raw_data();
-    if lock_field != tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)? {
+    if lock_field != tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)?
+        && still_locked_groups.is_empty()
+    {
         println!("> transaction ready to send!");
     } else {
         bail!("failed to sign tx");
@@ -129,10 +131,12 @@ fn sign_ethereum_tx(args: &EthereumArgs, env: &ConfigContext) -> Result<()> {
     if tx_info.omnilock_config.id().auth_content().as_bytes() != hash160.as_bytes() {
         bail!("can not find hash {:#x} in omnilock config", hash160);
     }
-    let (tx, _) = sign_tx_(tx, &tx_info.omnilock_config, vec![key], env)?;
+    let (tx, still_locked_groups) = sign_tx_(tx, &tx_info.omnilock_config, vec![key], env)?;
     let witness_args = WitnessArgs::from_slice(tx.witnesses().get(0).unwrap().raw_data().as_ref())?;
     let lock_field = witness_args.lock().to_opt().unwrap().raw_data();
-    if lock_field != tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)? {
+    if lock_field != tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)?
+        && still_locked_groups.is_empty()
+    {
         println!("> transaction ready to send!");
     } else {
         println!("failed to sign tx");
@@ -157,11 +161,15 @@ fn sign_multisig_tx(args: &SignTxMultisigArgs, env: &ConfigContext) -> Result<()
                 .unwrap()
         })
         .collect();
-    let (tx, _) = sign_tx_(tx, &tx_info.omnilock_config, keys, env)?;
+    let (tx, still_locked_groups) = sign_tx_(tx, &tx_info.omnilock_config, keys, env)?;
     let witness_args = WitnessArgs::from_slice(tx.witnesses().get(0).unwrap().raw_data().as_ref())?;
     let lock_field = witness_args.lock().to_opt().unwrap().raw_data();
     if lock_field != tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)? {
-        println!("> transaction signed!");
+        if still_locked_groups.is_empty() {
+            println!("> transaction ready to send!");
+        } else {
+            println!("> {} groups left to sign!", still_locked_groups.len());
+        }
     } else {
         println!("failed to sign tx");
     }
@@ -174,7 +182,7 @@ fn sign_multisig_tx(args: &SignTxMultisigArgs, env: &ConfigContext) -> Result<()
 }
 
 fn sign_tx_(
-    mut tx: TransactionView,
+    tx: TransactionView,
     omnilock_config: &OmniLockConfig,
     keys: Vec<secp256k1::SecretKey>,
     env: &ConfigContext,
@@ -188,10 +196,7 @@ fn sign_tx_(
         env.omnilock_index,
     )?;
 
-    let mut _still_locked_groups = None;
     let unlockers = build_omnilock_unlockers(keys, omnilock_config.clone(), cell.type_hash);
-    let (new_tx, new_still_locked_groups) = unlock_tx(tx.clone(), &tx_dep_provider, &unlockers)?;
-    tx = new_tx;
-    _still_locked_groups = Some(new_still_locked_groups);
-    Ok((tx, _still_locked_groups.unwrap_or_default()))
+    let (new_tx, new_still_locked_groups) = unlock_tx(tx, &tx_dep_provider, &unlockers)?;
+    Ok((new_tx, new_still_locked_groups))
 }
