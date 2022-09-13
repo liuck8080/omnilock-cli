@@ -1,15 +1,60 @@
-use std::str::FromStr;
-
-use crate::{client::build_omnilock_cell_dep, config::ConfigContext};
+use crate::{arg_parser::ArgParser, client::build_omnilock_cell_dep, config::ConfigContext};
+use ckb_crypto::secp::Pubkey;
 use ckb_sdk::{
     constants::SIGHASH_TYPE_HASH,
     unlock::{MultisigConfig, OmniLockConfig},
+    util::keccak160,
     Address, NetworkType, SECP256K1,
 };
 use ckb_types::{core::ScriptHashType, packed::Script, prelude::*, H160, H256};
-use clap::{Args, Subcommand};
+use clap::{ArgGroup, Args, Subcommand};
 
 use anyhow::{anyhow, bail, ensure, Result};
+#[derive(Args)]
+pub(crate) struct PubkeyHashArgs {
+    /// The receiver address
+    #[clap(long, value_name = "ADDRESS")]
+    sighash_address: Option<Address>,
+    /// The receiver's blake160 hash of a public key, lock-arg
+    #[clap(long, value_name = "HASH", value_parser=H160::parse)]
+    pubkey_hash: Option<H160>,
+}
+
+#[derive(Args)]
+#[clap(group(
+    ArgGroup::new("key")
+        .required(true)
+        .args(&["ethereum-address", "ethereum-privkey", "ethereum-pubkey"]),
+))]
+pub(crate) struct EthereumArgs {
+    /// The receiver's ethereum address
+    #[clap(long, value_name = "ADDRESS", value_parser=H160::parse)]
+    ethereum_address: Option<H160>,
+    /// The receiver's private key (hex string)
+    #[clap(long, value_name = "PRV_KEY", value_parser=H256::parse)]
+    ethereum_privkey: Option<H256>,
+    /// The receiver's pub key (hex string)
+    #[clap(long, value_name = "PUB_KEY")]
+    ethereum_pubkey: Option<String>,
+    /// Work with "--ethereum-privkey", if this value is set, print the generated public key
+    #[clap(
+        long,
+        value_name = "TO_PRINT_PUBKEY",
+        default_value = "false",
+        value_parser
+    )]
+    to_print_pubkey: bool,
+
+    /// Work with "--ethereum-privkey" or "--ethereum-pubkey", this option control if to print the generated ethereum address.
+    #[clap(
+        long,
+        value_name = "TO_PRINT_ADDR",
+        default_value = "false",
+        value_parser
+    )]
+    to_print_addr: bool,
+}
+
 #[derive(Args)]
 pub(crate) struct MultiSigArgs {
     /// Require first n signatures of corresponding pubkey
@@ -28,21 +73,9 @@ pub(crate) struct MultiSigArgs {
 #[derive(Subcommand)]
 pub(crate) enum BuildAddress {
     /// The auth content represents the blake160 hash of a secp256k1 public key.
-    /// The lock script will perform secp256k1 signature verification, the same as the SECP256K1/blake160 lock.
-    PubkeyHash {
-        /// The receiver address
-        #[clap(long, value_name = "ADDRESS")]
-        receiver: Address,
-    },
+    PubkeyHash(PubkeyHashArgs),
     /// It follows the same unlocking methods used by Ethereum.
-    Ethereum {
-        /// The receiver's private key (hex string)
-        #[clap(long, value_name = "PRV_KEY")]
-        receiver_privkey: Option<H256>,
-        /// The receiver's pub key (hex string)
-        #[clap(long, value_name = "PUB_KEY")]
-        receiver_pubkey: Option<String>,
-    },
+    Ethereum(EthereumArgs),
     // /// It follows the same unlocking methods used by EOS.
     // Eos,
     // /// It follows the same unlocking methods used by Tron.
@@ -66,16 +99,13 @@ pub(crate) enum BuildAddress {
     // Dl,
 }
 
-pub(crate) fn build_omnilock_addr(cmds: &BuildAddress, env: &ConfigContext) -> Result<()> {
+pub(crate) fn build_omnilock_addr(cmds: BuildAddress, env: &ConfigContext) -> Result<()> {
     match cmds {
-        BuildAddress::PubkeyHash { receiver } => {
-            build_pubkeyhash_addr(receiver, env)?;
+        BuildAddress::PubkeyHash(args) => {
+            build_pubkeyhash_addr(args, env)?;
         }
-        BuildAddress::Ethereum {
-            receiver_privkey,
-            receiver_pubkey,
-        } => {
-            build_ethereum_addr(receiver_privkey, receiver_pubkey, env)?;
+        BuildAddress::Ethereum(args) => {
+            build_ethereum_addr(args, env)?;
         }
         BuildAddress::Multisig(args) => {
             build_multisig_addr(args, env)?;
@@ -84,34 +114,62 @@ pub(crate) fn build_omnilock_addr(cmds: &BuildAddress, env: &ConfigContext) -> R
     Ok(())
 }
 
-fn build_pubkeyhash_addr(receiver: &Address, env: &ConfigContext) -> Result<()> {
-    let arg = H160::from_slice(&receiver.payload().args()).unwrap();
-    let config = OmniLockConfig::new_pubkey_hash_with_lockarg(arg);
-
-    build_addr_with_omnilock_conf(&config, env)
-}
-
-fn build_ethereum_addr(
-    receiver_privkey: &Option<H256>,
-    receiver_pubkey: &Option<String>,
-    env: &ConfigContext,
-) -> Result<()> {
-    let pubkey = if let Some(str) = receiver_pubkey {
-        secp256k1::PublicKey::from_str(str)?
-    } else if let Some(receiver) = receiver_privkey {
-        let privkey = secp256k1::SecretKey::from_slice(receiver.as_bytes()).unwrap();
-        secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey)
+fn build_pubkeyhash_addr(args: PubkeyHashArgs, env: &ConfigContext) -> Result<()> {
+    let arg = if let Some(pubkey_hash) = args.pubkey_hash {
+        pubkey_hash
+    } else if let Some(address) = args.sighash_address {
+        let to_address_hash_type = address.payload().hash_type();
+        let to_address_code_hash: H256 = address
+            .payload()
+            .code_hash(Some(address.network()))
+            .unpack();
+        ensure!(
+            to_address_hash_type == ScriptHashType::Type
+                && to_address_code_hash == ckb_sdk::constants::SIGHASH_TYPE_HASH,
+            "The receiver's address must be a sighash address!"
+        );
+        H160::from_slice(&address.payload().args())?
     } else {
-        bail!("should provide at least one private key or public key of the receiver");
+        bail!("The receiver's pubkey hash or address must be provided!");
     };
-    println!("pubkey:{:?}", hex_string(&pubkey.serialize()));
-    println!("pubkey:{:?}", hex_string(&pubkey.serialize_uncompressed()));
-    let config = OmniLockConfig::new_ethereum(&pubkey.into());
+    let config = OmniLockConfig::new_pubkey_hash(arg);
 
     build_addr_with_omnilock_conf(&config, env)
 }
 
-fn build_multisig_addr(args: &MultiSigArgs, env: &ConfigContext) -> Result<()> {
+fn build_ethereum_addr(args: EthereumArgs, env: &ConfigContext) -> Result<()> {
+    let address = if let Some(address) = args.ethereum_address {
+        address
+    } else {
+        let pubkey = if let Some(str) = args.ethereum_pubkey {
+            secp256k1::PublicKey::parse(&str)?
+        } else if let Some(receiver) = args.ethereum_privkey {
+            let privkey = secp256k1::SecretKey::from_slice(receiver.as_bytes()).unwrap();
+            let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
+
+            if args.to_print_pubkey {
+                println!("ethereum-pubkey:{:?}", hex_string(&pubkey.serialize()));
+                println!(
+                    "ethereum-pubkey:{:?}",
+                    hex_string(&pubkey.serialize_uncompressed())
+                );
+            }
+            pubkey
+        } else {
+            bail!("should provide at least one private key or public key of the receiver");
+        };
+        let addr = keccak160(Pubkey::from(pubkey).as_ref());
+        if args.to_print_addr {
+            println!("ethereum-address:{:#x}", addr);
+        }
+        addr
+    };
+    let config = OmniLockConfig::new_ethereum(address);
+
+    build_addr_with_omnilock_conf(&config, env)
+}
+
+fn build_multisig_addr(args: MultiSigArgs, env: &ConfigContext) -> Result<()> {
     let multisig_config =
         build_multisig_config(&args.sighash_address, args.require_first_n, args.threshold)?;
 

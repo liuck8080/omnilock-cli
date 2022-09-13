@@ -1,3 +1,4 @@
+mod arg_parser;
 mod build_addr;
 mod client;
 mod config;
@@ -88,7 +89,7 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::BuildAddress(cmds) => {
             let config = ConfigContext::parse(&cli.config)?;
-            build_omnilock_addr(&cmds, &config)?;
+            build_omnilock_addr(cmds, &config)?;
         }
         Commands::GenerateTx(cmds) => {
             let config = ConfigContext::parse(&cli.config)?;

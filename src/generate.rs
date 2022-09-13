@@ -13,14 +13,14 @@ use ckb_sdk::{
     },
     unlock::{OmniLockConfig, OmniLockScriptSigner},
     unlock::{OmniLockUnlocker, OmniUnlockMode, ScriptUnlocker},
-    Address, HumanCapacity, ScriptId, SECP256K1,
+    Address, HumanCapacity, ScriptId,
 };
 use ckb_types::{
     bytes::Bytes,
     core::{BlockView, ScriptHashType, TransactionView},
     packed::{CellDep, CellOutput, OutPoint, Script},
     prelude::*,
-    H256,
+    H160, H256,
 };
 use clap::{Args, Subcommand};
 
@@ -32,9 +32,9 @@ use anyhow::{Context, Result};
 use std::fs;
 #[derive(Args)]
 pub struct GeneratePubkeyHashArgs {
-    /// The sender private key (hex string)
+    /// The sender's pubkey hash, lock-arg
     #[clap(long, value_name = "KEY")]
-    sender_key: H256,
+    pubkey_hash: H160,
 
     #[clap(flatten)]
     common_args: CommonArgs,
@@ -75,9 +75,9 @@ pub struct GenerateMultiSigArgs {
 
 #[derive(Args)]
 pub struct GenerateEthereumArgs {
-    /// The sender private key (hex string)
-    #[clap(long, value_name = "KEY")]
-    sender_key: H256,
+    /// The receiver's ethereum address
+    #[clap(long, value_name = "ADDRESS")]
+    address: H160,
 
     #[clap(flatten)]
     common_args: CommonArgs,
@@ -111,16 +111,7 @@ fn build_pubkeyhash_transfer_tx(
     args: &GeneratePubkeyHashArgs,
     env: &ConfigContext,
 ) -> Result<(TransactionView, OmniLockConfig, PathBuf)> {
-    let sender_key =
-        secp256k1::SecretKey::from_slice(args.sender_key.as_bytes()).with_context(|| {
-            format!(
-                "fail to parse the send_key: `{0}` as private key",
-                args.sender_key
-            )
-        })?;
-    let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &sender_key);
-
-    let omnilock_config = OmniLockConfig::new_pubkey_hash(&pubkey.into());
+    let omnilock_config = OmniLockConfig::new_pubkey_hash(args.pubkey_hash.clone());
     build_transfer_tx_(&args.common_args, env, omnilock_config)
 }
 
@@ -205,11 +196,7 @@ fn build_ethereum_transfer_tx(
     args: &GenerateEthereumArgs,
     env: &ConfigContext,
 ) -> Result<(TransactionView, OmniLockConfig, PathBuf)> {
-    let sender_key = secp256k1::SecretKey::from_slice(args.sender_key.as_bytes())?;
-    let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &sender_key);
-    println!("pubkey:{:?}", hex_string(&pubkey.serialize()));
-    println!("pubkey:{:?}", hex_string(&pubkey.serialize_uncompressed()));
-    let omnilock_config = OmniLockConfig::new_ethereum(&pubkey.into());
+    let omnilock_config = OmniLockConfig::new_ethereum(args.address.clone());
     build_transfer_tx_(&args.common_args, env, omnilock_config)
 }
 
