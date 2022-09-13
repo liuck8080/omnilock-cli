@@ -139,7 +139,7 @@ fn sign_ethereum_tx(args: &EthereumArgs, env: &ConfigContext) -> Result<()> {
     {
         println!("> transaction ready to send!");
     } else {
-        println!("failed to sign tx");
+        eprintln!("failed to sign tx");
     }
     let tx_info = TxInfo {
         transaction: json_types::Transaction::from(tx.data()),
@@ -171,7 +171,7 @@ fn sign_multisig_tx(args: &SignTxMultisigArgs, env: &ConfigContext) -> Result<()
             println!("> {} groups left to sign!", still_locked_groups.len());
         }
     } else {
-        println!("failed to sign tx");
+        eprintln!("failed to sign tx");
     }
     let tx_info = TxInfo {
         transaction: json_types::Transaction::from(tx.data()),

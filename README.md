@@ -73,8 +73,6 @@ omnilock-cli build-address ethereum --ethereum-address 0xcf2485c76aff1f2b4464edf
 ```
 The output:
 ```json
-pubkey:"038d3cfceea4f9c2e76c5c4f5e99aec74c26d6ac894648b5700a0b71f91f9b5c2a"
-pubkey:"048d3cfceea4f9c2e76c5c4f5e99aec74c26d6ac894648b5700a0b71f91f9b5c2a26b16aac1d5753e56849ea83bf795eb8b06f0b6f4e5ed7b8caca720595458039"
 {
   "lock-arg": "0x01cf2485c76aff1f2b4464edf04a1c8045068cf7e000",
   "lock-hash": "0x04b791304bbd6287218acc9e4b0971789ea1ef52b758317481245913511c6159",
@@ -198,8 +196,6 @@ omnilock-cli build-address ethereum --ethereum-address 0xcf2485c76aff1f2b4464edf
 ```
 result:
 ```json
-pubkey:"038d3cfceea4f9c2e76c5c4f5e99aec74c26d6ac894648b5700a0b71f91f9b5c2a"
-pubkey:"048d3cfceea4f9c2e76c5c4f5e99aec74c26d6ac894648b5700a0b71f91f9b5c2a26b16aac1d5753e56849ea83bf795eb8b06f0b6f4e5ed7b8caca720595458039"
 {
   "lock-arg": "0x01cf2485c76aff1f2b4464edf04a1c8045068cf7e000",
   "lock-hash": "0x04b791304bbd6287218acc9e4b0971789ea1ef52b758317481245913511c6159",

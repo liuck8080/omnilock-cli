@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::{arg_parser::ArgParser, client::build_omnilock_cell_dep, config::ConfigContext};
 use ckb_crypto::secp::Pubkey;
 use ckb_sdk::{
@@ -10,6 +12,8 @@ use ckb_types::{core::ScriptHashType, packed::Script, prelude::*, H160, H256};
 use clap::{ArgGroup, Args, Subcommand};
 
 use anyhow::{anyhow, bail, ensure, Result};
+use jsonrpc_core::Value;
+use serde_json::json;
 #[derive(Args)]
 pub(crate) struct PubkeyHashArgs {
     /// The receiver address
@@ -134,10 +138,11 @@ fn build_pubkeyhash_addr(args: PubkeyHashArgs, env: &ConfigContext) -> Result<()
     };
     let config = OmniLockConfig::new_pubkey_hash(arg);
 
-    build_addr_with_omnilock_conf(&config, env)
+    build_addr_with_omnilock_conf(&config, env, BTreeMap::default())
 }
 
 fn build_ethereum_addr(args: EthereumArgs, env: &ConfigContext) -> Result<()> {
+    let mut extra_json = BTreeMap::new();
     let address = if let Some(address) = args.ethereum_address {
         address
     } else {
@@ -148,10 +153,9 @@ fn build_ethereum_addr(args: EthereumArgs, env: &ConfigContext) -> Result<()> {
             let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &privkey);
 
             if args.to_print_pubkey {
-                println!("ethereum-pubkey:{:?}", hex_string(&pubkey.serialize()));
-                println!(
-                    "ethereum-pubkey:{:?}",
-                    hex_string(&pubkey.serialize_uncompressed())
+                extra_json.insert(
+                    "ethereum-pubkey".to_owned(),
+                    json!(format!("0x{:#x}", pubkey)),
                 );
             }
             pubkey
@@ -160,13 +164,16 @@ fn build_ethereum_addr(args: EthereumArgs, env: &ConfigContext) -> Result<()> {
         };
         let addr = keccak160(Pubkey::from(pubkey).as_ref());
         if args.to_print_addr {
-            println!("ethereum-address:{:#x}", addr);
+            extra_json.insert(
+                "ethereum-address".to_owned(),
+                json!(json!(format!("0x{:#x}", addr))),
+            );
         }
         addr
     };
     let config = OmniLockConfig::new_ethereum(address);
 
-    build_addr_with_omnilock_conf(&config, env)
+    build_addr_with_omnilock_conf(&config, env, extra_json)
 }
 
 fn build_multisig_addr(args: MultiSigArgs, env: &ConfigContext) -> Result<()> {
@@ -174,10 +181,14 @@ fn build_multisig_addr(args: MultiSigArgs, env: &ConfigContext) -> Result<()> {
         build_multisig_config(&args.sighash_address, args.require_first_n, args.threshold)?;
 
     let config = OmniLockConfig::new_multisig(multisig_config);
-    build_addr_with_omnilock_conf(&config, env)
+    build_addr_with_omnilock_conf(&config, env, BTreeMap::default())
 }
 
-fn build_addr_with_omnilock_conf(config: &OmniLockConfig, env: &ConfigContext) -> Result<()> {
+fn build_addr_with_omnilock_conf(
+    config: &OmniLockConfig,
+    env: &ConfigContext,
+    extra_json: BTreeMap<String, Value>,
+) -> Result<()> {
     let cell = build_omnilock_cell_dep(
         env.ckb_rpc.as_str(),
         &env.omnilock_tx_hash,
@@ -189,12 +200,19 @@ fn build_addr_with_omnilock_conf(config: &OmniLockConfig, env: &ConfigContext) -
         ckb_sdk::AddressPayload::new_full(ScriptHashType::Type, cell.type_hash.pack(), args)
     };
     let lock_script = Script::from(&address_payload);
-    let resp = serde_json::json!({
+    let mut resp = serde_json::json!({
         "mainnet": Address::new(NetworkType::Mainnet, address_payload.clone(), true).to_string(),
         "testnet": Address::new(NetworkType::Testnet, address_payload.clone(), true).to_string(),
         "lock-arg": format!("0x{}", hex_string(address_payload.args().as_ref())),
         "lock-hash": format!("{:#x}", lock_script.calc_script_hash())
     });
+
+    if !extra_json.is_empty() {
+        if let &mut Value::Object(ref mut map) = &mut resp {
+            map.extend(extra_json);
+        }
+    }
+
     println!("{}", serde_json::to_string_pretty(&resp)?);
     Ok(())
 }
