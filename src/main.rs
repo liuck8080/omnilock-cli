@@ -1,16 +1,25 @@
+mod arg_parser;
+mod build_addr;
+mod client;
 mod config;
-use std::path::PathBuf;
+mod generate;
+mod keystore;
+mod sign;
+mod txinfo;
 
-use ckb_sdk::Address;
-use ckb_types::{
-    bytes::Bytes,
-    core::{BlockView, ScriptHashType, TransactionView},
-    packed::{Byte32, CellDep, CellOutput, OutPoint, Script, Transaction, WitnessArgs},
-    prelude::*,
-    H160, H256,
-};
+use ckb_jsonrpc_types as json_types;
+use std::{fs, path::PathBuf};
+
+use anyhow::{Context, Result};
+use build_addr::BuildAddress;
+use ckb_sdk::CkbRpcClient;
+use ckb_types::H256;
 use clap::{Args, Parser, Subcommand};
-use config::ConfigContext;
+use config::{handle_config_cmds, ConfigCmds, ConfigContext};
+use generate::{generate_transfer_tx, GenerateTx};
+use sign::{sign_tx, SignCmd};
+
+use crate::{build_addr::build_omnilock_addr, txinfo::TxInfo};
 
 #[derive(Args)]
 struct EnvArgs {
@@ -35,29 +44,26 @@ struct EnvArgs {
     env_config_file: String,
 }
 
-#[derive(Args)]
-struct BuildOmniLockAddrMultiSigArgs {
-    /// Require first n signatures of corresponding pubkey
-    #[clap(long, value_name = "NUM")]
-    require_first_n: u8,
-
-    /// Multisig threshold
-    #[clap(long, value_name = "NUM")]
-    threshold: u8,
-
-    /// Normal sighash address
-    #[clap(long, value_name = "ADDRESS")]
-    sighash_address: Vec<Address>,
-}
-
 #[derive(Subcommand)]
 enum Commands {
     /// build omni lock address
-    Build(BuildOmniLockAddrMultiSigArgs),
+    #[clap(subcommand)]
+    BuildAddress(BuildAddress),
+    /// generate a transaction not signed yet
+    #[clap(subcommand)]
+    GenerateTx(GenerateTx),
+    /// Sign the transaction
+    #[clap(subcommand)]
+    Sign(SignCmd),
+    /// Send the transaction
+    Send {
+        /// The transaction info file (.json)
+        #[clap(long, value_name = "PATH")]
+        tx_file: PathBuf,
+    },
     /// generate a template configuration for later modification.
-    InitConfig,
-    /// say hello
-    Hi,
+    #[clap(subcommand)]
+    Config(ConfigCmds),
 }
 
 #[derive(Parser)]
@@ -77,22 +83,44 @@ struct Cli {
     command: Commands,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Build(_args) => {
-            println!("build!");
+        Commands::BuildAddress(cmds) => {
+            let config = ConfigContext::parse(&cli.config)?;
+            build_omnilock_addr(cmds, &config)?;
         }
-        Commands::InitConfig => {
-            match ConfigContext::write_template(&cli.config) {
-                Ok(_) => println!("The template file {} generated, please fill it with the correct content.", &cli.config),
-                Err(e) => println!("Fail to generate the template file {}, error: {}", cli.config, e)
-            }
+        Commands::GenerateTx(cmds) => {
+            let config = ConfigContext::parse(&cli.config)?;
+            generate_transfer_tx(&cmds, &config)?;
         }
-        Commands::Hi => {
-            let config = ConfigContext::parse(&cli.config).unwrap();
-            println!("Hello, world!");
+        Commands::Sign(cmds) => {
+            let config = ConfigContext::parse(&cli.config)?;
+            sign_tx(&cmds, &config)?;
+        }
+        Commands::Send { tx_file } => {
+            let config = ConfigContext::parse(&cli.config)?;
+            send_tx(&tx_file, &config)?;
+        }
+        Commands::Config(cmds) => {
+            handle_config_cmds(&cmds, &cli.config)?;
         }
     }
+    Ok(())
+}
+
+fn send_tx(tx_file: &PathBuf, env: &ConfigContext) -> Result<()> {
+    // Send transaction
+    let read = fs::read(&tx_file)
+        .with_context(|| format!("try to read file {}", tx_file.to_string_lossy()))?;
+    let tx_info: TxInfo = serde_json::from_slice(&read)
+        .with_context(|| format!("try to parse file {}", tx_file.to_string_lossy()))?;
+    // println!("> tx: {}", serde_json::to_string_pretty(&tx_info.transaction)?);
+    let outputs_validator = Some(json_types::OutputsValidator::Passthrough);
+    let tx_hash = CkbRpcClient::new(env.ckb_rpc.as_str())
+        .send_transaction(tx_info.transaction, outputs_validator)
+        .expect("send transaction");
+    println!(">>> tx {} sent! <<<", tx_hash);
+    Ok(())
 }
