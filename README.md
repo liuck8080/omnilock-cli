@@ -216,9 +216,9 @@ ckb-cli wallet get-live-cells --address ckt1qqklkz85v4xt39ws5dd2hdv8xsy4jnpe3env
 
 4. Generate transaction
 ```bash
-omnilock-cli generate-tx ethereum  --sender-key 63d86723e08f0f813a36ce6aa123bb2289d90680ae1e99d4de8cdb334553f24d \
+omnilock-cli generate-tx ethereum  --sender-address 0xcf2485c76aff1f2b4464edf04a1c8045068cf7e0 \
                                    --receiver ckt1qyqy68e02pll7qd9m603pqkdr29vw396h6dq50reug \
-                                   --capacity 99.9999 \
+                                   --capacity 99.0000849 \
                                    --tx-file tx.json
 ```
 
