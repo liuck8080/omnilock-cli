@@ -4,6 +4,7 @@ use ckb_jsonrpc_types as json_types;
 use ckb_sdk::{
     traits::DefaultTransactionDependencyProvider,
     tx_builder::unlock_tx,
+    types::omni_lock::OmniLockWitnessLock,
     unlock::{OmniLockConfig, OmniUnlockMode},
     util::keccak160,
     ScriptGroup, SECP256K1,
@@ -113,7 +114,7 @@ fn sign_pubkey_hash_tx(args: &SignTxPubkeyHashArgs, env: &ConfigContext) -> Resu
     {
         println!("> transaction ready to send!");
     } else {
-        bail!("failed to sign tx");
+        bail!("Failed to sign the transaction!");
     }
     let tx_info = TxInfo {
         transaction: json_types::Transaction::from(tx.data()),
@@ -145,7 +146,7 @@ fn sign_ethereum_tx(args: &EthereumArgs, env: &ConfigContext) -> Result<()> {
     {
         println!("> transaction ready to send!");
     } else {
-        eprintln!("failed to sign tx");
+        bail!("Failed to sign the transaction!");
     }
     let tx_info = TxInfo {
         transaction: json_types::Transaction::from(tx.data()),
@@ -159,18 +160,49 @@ fn sign_multisig_tx(args: &SignTxMultisigArgs, env: &ConfigContext) -> Result<()
     let tx_info: TxInfo = serde_json::from_slice(&fs::read(&args.tx_file)?)?;
     let tx = Transaction::from(tx_info.transaction).into_view();
 
+    let previous_lock_field = {
+        let witness_args =
+            WitnessArgs::from_slice(tx.witnesses().get(0).unwrap().raw_data().as_ref())?;
+        witness_args.lock().to_opt().unwrap().raw_data()
+    };
     let (tx, still_locked_groups) =
         sign_tx_(tx, &tx_info.omnilock_config, args.sender_key.clone(), env)?;
     let witness_args = WitnessArgs::from_slice(tx.witnesses().get(0).unwrap().raw_data().as_ref())?;
     let lock_field = witness_args.lock().to_opt().unwrap().raw_data();
-    if lock_field != tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)? {
+    let zero_lock = tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)?;
+    if lock_field.len() == zero_lock.len() && lock_field != previous_lock_field {
         if still_locked_groups.is_empty() {
-            println!("> transaction ready to send!");
+            let multisig_config = tx_info.omnilock_config.multisig_config().unwrap();
+            let n = multisig_config.threshold();
+            let omnilock_witnesslock = OmniLockWitnessLock::from_slice(lock_field.as_ref())?;
+            let omni_sig = omnilock_witnesslock
+                .signature()
+                .to_opt()
+                .map(|data| data.raw_data().as_ref().to_vec())
+                .unwrap();
+
+            let mut idx = multisig_config.to_witness_data().len();
+            let mut empty_n = 0u32; // empty number of slices of signatures.
+            while idx < omni_sig.len() {
+                if omni_sig[idx..idx + 65] == [0u8; 65] {
+                    empty_n += 1;
+                }
+                idx += 65;
+            }
+            if empty_n == 0 {
+                println!("> transaction ready to send!");
+            } else if empty_n <= n as u32 {
+                println!("> {} more signature(s) need !", empty_n);
+            } else {
+                bail!("{} signatures need, but got {} left to sign!", n, empty_n)
+            }
         } else {
             println!("> {} groups left to sign!", still_locked_groups.len());
         }
+    } else if lock_field == zero_lock || zero_lock.len() != lock_field.len() {
+        bail!("Failed to sign the transaction!");
     } else {
-        eprintln!("failed to sign tx");
+        bail!("You may tried signed the second time with the same private key!");
     }
     let tx_info = TxInfo {
         transaction: json_types::Transaction::from(tx.data()),

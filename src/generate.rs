@@ -79,9 +79,9 @@ pub struct GenerateMultiSigArgs {
 
 #[derive(Args)]
 pub struct GenerateEthereumArgs {
-    /// The receiver's ethereum address
+    /// The sender's ethereum address
     #[clap(long, value_name = "ADDRESS", value_parser=H160::parse)]
-    address: H160,
+    sender_address: H160,
 
     #[clap(flatten)]
     common_args: CommonArgs,
@@ -200,7 +200,7 @@ fn build_ethereum_transfer_tx(
     args: &GenerateEthereumArgs,
     env: &ConfigContext,
 ) -> Result<(TransactionView, OmniLockConfig, PathBuf)> {
-    let omnilock_config = OmniLockConfig::new_ethereum(args.address.clone());
+    let omnilock_config = OmniLockConfig::new_ethereum(args.sender_address.clone());
     build_transfer_tx_(&args.common_args, env, omnilock_config)
 }
 
