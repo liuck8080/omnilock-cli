@@ -26,7 +26,7 @@ use clap::{Args, Subcommand};
 
 use crate::{
     build_addr::build_multisig_config, client::build_omnilock_cell_dep_from_client,
-    config::ConfigContext, txinfo::TxInfo,
+    config::ConfigContext, signer::CommonSigner, txinfo::TxInfo,
 };
 use anyhow::{Context, Result};
 use std::fs;
@@ -221,8 +221,9 @@ pub fn build_omnilock_unlockers(
     } else {
         SecpCkbRawKeySigner::new_with_secret_keys(keys)
     };
+    let omnilock_signer = Box::new(CommonSigner::new(vec![Box::new(signer)]));
     let omnilock_signer =
-        OmniLockScriptSigner::new(Box::new(signer), config.clone(), OmniUnlockMode::Normal);
+        OmniLockScriptSigner::new(omnilock_signer, config.clone(), OmniUnlockMode::Normal);
     let omnilock_unlocker = OmniLockUnlocker::new(omnilock_signer, config);
     let omnilock_script_id = ScriptId::new_type(omni_lock_type_hash);
     HashMap::from([(
