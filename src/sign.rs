@@ -13,7 +13,7 @@ use ckb_types::{
     molecule::hex_string,
     packed::{Transaction, WitnessArgs},
     prelude::*,
-    H160, H256,
+    H160,
 };
 use clap::{Args, Subcommand};
 use rpassword::prompt_password_stdout;
@@ -21,18 +21,22 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::{
-    client::build_omnilock_cell_dep, config::ConfigContext, generate::build_omnilock_unlockers,
-    keystore::CkbKeyStore, txinfo::TxInfo,
+    arg_parser::{ArgParser, PrivkeyArgParser, PrivkeyWrapper},
+    client::build_omnilock_cell_dep,
+    config::ConfigContext,
+    generate::build_omnilock_unlockers,
+    keystore::CkbKeyStore,
+    txinfo::TxInfo,
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 
 #[derive(Args)]
 pub struct SignTxPubkeyHashArgs {
     /// The sender private key (hex string)
-    #[clap(long, value_name = "PRIV_KEY")]
-    pub sender_key: Option<H256>,
+    #[clap(long, value_name = "PRIV_KEY", value_parser=PrivkeyArgParser::parse)]
+    pub sender_key: Option<PrivkeyWrapper>,
     /// the unlock account
-    #[clap(long, value_name = "ACCOUNT")]
+    #[clap(long, value_name = "ACCOUNT", value_parser=H160::parse)]
     pub from_account: Option<H160>,
     /// The output transaction info file (.json)
     #[clap(long, value_name = "PATH")]
@@ -42,8 +46,8 @@ pub struct SignTxPubkeyHashArgs {
 #[derive(Args)]
 pub struct EthereumArgs {
     /// The sender private key (hex string)
-    #[clap(long, value_name = "KEY")]
-    sender_key: H256,
+    #[clap(long, value_name = "KEY", value_parser=PrivkeyArgParser::parse)]
+    sender_key: PrivkeyWrapper,
 
     /// The output transaction info file (.json)
     #[clap(long, value_name = "PATH")]
@@ -53,8 +57,8 @@ pub struct EthereumArgs {
 #[derive(Args)]
 pub struct SignTxMultisigArgs {
     /// The sender private key (hex string)
-    #[clap(long, value_name = "KEY", multiple_values = true)]
-    sender_key: Vec<H256>,
+    #[clap(long, value_name = "KEY", multiple_values = true, value_parser=PrivkeyArgParser::parse)]
+    sender_key: Vec<PrivkeyWrapper>,
 
     /// The output transaction info file (.json)
     #[clap(long, value_name = "PATH")]
@@ -83,9 +87,8 @@ fn sign_pubkey_hash_tx(args: &SignTxPubkeyHashArgs, env: &ConfigContext) -> Resu
     let tx_info: TxInfo = serde_json::from_slice(&fs::read(&args.tx_file)?)?;
     let tx = Transaction::from(tx_info.transaction).into_view();
 
-    let key = if let Some(sender_key) = args.sender_key.as_ref() {
-        secp256k1::SecretKey::from_slice(sender_key.as_bytes())
-            .with_context(|| format!("invalid sender secret key: {}", sender_key))?
+    let key = if let Some(sender_key) = &args.sender_key {
+        sender_key.clone()
     } else if let Some(from_account) = args.from_account.as_ref() {
         let prompt = "Password";
         let pass = prompt_password_stdout(format!("{}: ", prompt).as_str())?;
@@ -123,15 +126,18 @@ fn sign_pubkey_hash_tx(args: &SignTxPubkeyHashArgs, env: &ConfigContext) -> Resu
 fn sign_ethereum_tx(args: &EthereumArgs, env: &ConfigContext) -> Result<()> {
     let tx_info: TxInfo = serde_json::from_slice(&fs::read(&args.tx_file)?)?;
     let tx = Transaction::from(tx_info.transaction).into_view();
-    let key = secp256k1::SecretKey::from_slice(args.sender_key.as_bytes())
-        .with_context(|| format!("invalid sender secret key: {}", args.sender_key))?;
-    let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &key);
+    let pubkey = secp256k1::PublicKey::from_secret_key(&SECP256K1, &args.sender_key);
     let pubkey = Pubkey::from(pubkey);
     let hash160 = keccak160(pubkey.as_ref());
     if tx_info.omnilock_config.id().auth_content().as_bytes() != hash160.as_bytes() {
         bail!("can not find hash {:#x} in omnilock config", hash160);
     }
-    let (tx, still_locked_groups) = sign_tx_(tx, &tx_info.omnilock_config, vec![key], env)?;
+    let (tx, still_locked_groups) = sign_tx_(
+        tx,
+        &tx_info.omnilock_config,
+        vec![args.sender_key.clone()],
+        env,
+    )?;
     let witness_args = WitnessArgs::from_slice(tx.witnesses().get(0).unwrap().raw_data().as_ref())?;
     let lock_field = witness_args.lock().to_opt().unwrap().raw_data();
     if lock_field != tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)?
@@ -152,16 +158,9 @@ fn sign_ethereum_tx(args: &EthereumArgs, env: &ConfigContext) -> Result<()> {
 fn sign_multisig_tx(args: &SignTxMultisigArgs, env: &ConfigContext) -> Result<()> {
     let tx_info: TxInfo = serde_json::from_slice(&fs::read(&args.tx_file)?)?;
     let tx = Transaction::from(tx_info.transaction).into_view();
-    let keys: Vec<_> = args
-        .sender_key
-        .iter()
-        .map(|sender_key| {
-            secp256k1::SecretKey::from_slice(sender_key.as_bytes())
-                .map_err(|err| format!("invalid sender secret key: {}", err))
-                .unwrap()
-        })
-        .collect();
-    let (tx, still_locked_groups) = sign_tx_(tx, &tx_info.omnilock_config, keys, env)?;
+
+    let (tx, still_locked_groups) =
+        sign_tx_(tx, &tx_info.omnilock_config, args.sender_key.clone(), env)?;
     let witness_args = WitnessArgs::from_slice(tx.witnesses().get(0).unwrap().raw_data().as_ref())?;
     let lock_field = witness_args.lock().to_opt().unwrap().raw_data();
     if lock_field != tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)? {
@@ -184,7 +183,7 @@ fn sign_multisig_tx(args: &SignTxMultisigArgs, env: &ConfigContext) -> Result<()
 fn sign_tx_(
     tx: TransactionView,
     omnilock_config: &OmniLockConfig,
-    keys: Vec<secp256k1::SecretKey>,
+    keys: Vec<PrivkeyWrapper>,
     env: &ConfigContext,
 ) -> Result<(TransactionView, Vec<ScriptGroup>)> {
     // Unlock transaction

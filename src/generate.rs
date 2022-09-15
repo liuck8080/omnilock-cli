@@ -25,15 +25,19 @@ use ckb_types::{
 use clap::{Args, Subcommand};
 
 use crate::{
-    build_addr::build_multisig_config, client::build_omnilock_cell_dep_from_client,
-    config::ConfigContext, signer::CommonSigner, txinfo::TxInfo,
+    arg_parser::{ArgParser, PrivkeyWrapper},
+    build_addr::build_multisig_config,
+    client::build_omnilock_cell_dep_from_client,
+    config::ConfigContext,
+    signer::CommonSigner,
+    txinfo::TxInfo,
 };
 use anyhow::{Context, Result};
 use std::fs;
 #[derive(Args)]
 pub struct GeneratePubkeyHashArgs {
     /// The sender's pubkey hash, lock-arg
-    #[clap(long, value_name = "KEY")]
+    #[clap(long, value_name = "KEY", value_parser=H160::parse)]
     pubkey_hash: H160,
 
     #[clap(flatten)]
@@ -76,7 +80,7 @@ pub struct GenerateMultiSigArgs {
 #[derive(Args)]
 pub struct GenerateEthereumArgs {
     /// The receiver's ethereum address
-    #[clap(long, value_name = "ADDRESS")]
+    #[clap(long, value_name = "ADDRESS", value_parser=H160::parse)]
     address: H160,
 
     #[clap(flatten)]
@@ -212,10 +216,11 @@ fn build_multisig_transfer_tx(
 }
 
 pub fn build_omnilock_unlockers(
-    keys: Vec<secp256k1::SecretKey>,
+    keys: Vec<PrivkeyWrapper>,
     config: OmniLockConfig,
     omni_lock_type_hash: H256,
 ) -> HashMap<ScriptId, Box<dyn ScriptUnlocker>> {
+    let keys: Vec<secp256k1::SecretKey> = keys.iter().map(|k| k.0).collect();
     let signer = if config.is_ethereum() {
         SecpCkbRawKeySigner::new_with_ethereum_secret_keys(keys)
     } else {
