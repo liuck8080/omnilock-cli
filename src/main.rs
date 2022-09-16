@@ -7,6 +7,7 @@ mod keystore;
 mod sign;
 mod signer;
 mod txinfo;
+mod util;
 
 use ckb_jsonrpc_types as json_types;
 use std::{fs, path::PathBuf};

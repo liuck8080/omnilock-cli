@@ -5,7 +5,7 @@ use ckb_types::H256;
 use clap::Subcommand;
 use yaml_rust::YamlLoader;
 
-use crate::client::build_omnilock_cell_dep;
+use crate::{client::build_omnilock_cell_dep, util::strip_prefix_0x};
 
 #[derive(Subcommand)]
 pub(crate) enum ConfigCmds {
@@ -106,6 +106,7 @@ impl ConfigContext {
         ensure!(!docs.is_empty(), "Can't parse data from {}", path);
         let doc = &docs[0];
         let omnilock_tx_hash = try_str!("omnilock_tx_hash", doc);
+        let omnilock_tx_hash = strip_prefix_0x(omnilock_tx_hash);
         let omnilock_tx_hash =
             H256::from_str(omnilock_tx_hash).with_context(|| "Fail to parse omnilock_tx_hash")?;
         let omnilock_index = try_i64!("omnilock_index", doc);
