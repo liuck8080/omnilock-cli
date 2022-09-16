@@ -25,7 +25,7 @@ omnilock-cli config check
 ```
 -- Check the specified configuration file:
 ```bash
-omnilock-cli config check
+ omnilock-cli -c ~/.omnilock.yaml config check
 ```
 
 # Build omnilock address
@@ -82,11 +82,11 @@ The output:
 ```
 2. Build with the compressed public key
 ```bash
-omnilock-cli build-address ethereum --receiver-pubkey 038d3cfceea4f9c2e76c5c4f5e99aec74c26d6ac894648b5700a0b71f91f9b5c2a
+omnilock-cli build-address ethereum --ethereum-pubkey 038d3cfceea4f9c2e76c5c4f5e99aec74c26d6ac894648b5700a0b71f91f9b5c2a
 ```
 3. Build with the uncompressed public key
 ```bash
-omnilock-cli build-address ethereum --receiver-pubkey 048d3cfceea4f9c2e76c5c4f5e99aec74c26d6ac894648b5700a0b71f91f9b5c2a26b16aac1d5753e56849ea83bf795eb8b06f0b6f4e5ed7b8caca720595458039
+omnilock-cli build-address ethereum --ethereum-pubkey 048d3cfceea4f9c2e76c5c4f5e99aec74c26d6ac894648b5700a0b71f91f9b5c2a26b16aac1d5753e56849ea83bf795eb8b06f0b6f4e5ed7b8caca720595458039
 ```
 
 # Simple transfer
@@ -109,8 +109,8 @@ ckb-cli wallet get-live-cells --address ckt1qqklkz85v4xt39ws5dd2hdv8xsy4jnpe3env
 
 4. Generate transaction
 ```bash
-# 8dadf1939b89919ca74b58fef41c0d4ec70cd6a7b093a0c8ca5b268f93b8181f is private key of address ckt1qyqt8xpk328d89zgl928nsgh3lelch33vvvq5u3024
-omnilock-cli generate-tx pubkey-hash --capacity 98.99999588 --receiver ckt1qyqy68e02pll7qd9m603pqkdr29vw396h6dq50reug --sender-key 8dadf1939b89919ca74b58fef41c0d4ec70cd6a7b093a0c8ca5b268f93b8181f --tx-file tx.json
+# 0xb398368a8ed39448f95479c1178ff3fc5e316318 is pubkey hash of address ckt1qyqt8xpk328d89zgl928nsgh3lelch33vvvq5u3024
+omnilock-cli generate-tx pubkey-hash --pubkey-hash 0xb398368a8ed39448f95479c1178ff3fc5e316318 --capacity 98.99999588 --receiver ckt1qyqy68e02pll7qd9m603pqkdr29vw396h6dq50reug --tx-file tx.json
 ```
 
 5. Sign the transaction
@@ -216,9 +216,9 @@ ckb-cli wallet get-live-cells --address ckt1qqklkz85v4xt39ws5dd2hdv8xsy4jnpe3env
 
 4. Generate transaction
 ```bash
-omnilock-cli generate-tx ethereum  --sender-key 63d86723e08f0f813a36ce6aa123bb2289d90680ae1e99d4de8cdb334553f24d \
+omnilock-cli generate-tx ethereum  --sender-address 0xcf2485c76aff1f2b4464edf04a1c8045068cf7e0 \
                                    --receiver ckt1qyqy68e02pll7qd9m603pqkdr29vw396h6dq50reug \
-                                   --capacity 99.9999 \
+                                   --capacity 99.0000849 \
                                    --tx-file tx.json
 ```
 

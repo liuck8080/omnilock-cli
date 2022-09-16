@@ -5,6 +5,7 @@ mod config;
 mod generate;
 mod keystore;
 mod sign;
+mod signer;
 mod txinfo;
 
 use ckb_jsonrpc_types as json_types;

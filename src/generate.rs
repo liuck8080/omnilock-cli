@@ -25,15 +25,19 @@ use ckb_types::{
 use clap::{Args, Subcommand};
 
 use crate::{
-    build_addr::build_multisig_config, client::build_omnilock_cell_dep_from_client,
-    config::ConfigContext, txinfo::TxInfo,
+    arg_parser::{ArgParser, PrivkeyWrapper},
+    build_addr::build_multisig_config,
+    client::build_omnilock_cell_dep_from_client,
+    config::ConfigContext,
+    signer::CommonSigner,
+    txinfo::TxInfo,
 };
 use anyhow::{Context, Result};
 use std::fs;
 #[derive(Args)]
 pub struct GeneratePubkeyHashArgs {
     /// The sender's pubkey hash, lock-arg
-    #[clap(long, value_name = "KEY")]
+    #[clap(long, value_name = "KEY", value_parser=H160::parse)]
     pubkey_hash: H160,
 
     #[clap(flatten)]
@@ -75,9 +79,9 @@ pub struct GenerateMultiSigArgs {
 
 #[derive(Args)]
 pub struct GenerateEthereumArgs {
-    /// The receiver's ethereum address
-    #[clap(long, value_name = "ADDRESS")]
-    address: H160,
+    /// The sender's ethereum address
+    #[clap(long, value_name = "ADDRESS", value_parser=H160::parse)]
+    sender_address: H160,
 
     #[clap(flatten)]
     common_args: CommonArgs,
@@ -196,7 +200,7 @@ fn build_ethereum_transfer_tx(
     args: &GenerateEthereumArgs,
     env: &ConfigContext,
 ) -> Result<(TransactionView, OmniLockConfig, PathBuf)> {
-    let omnilock_config = OmniLockConfig::new_ethereum(args.address.clone());
+    let omnilock_config = OmniLockConfig::new_ethereum(args.sender_address.clone());
     build_transfer_tx_(&args.common_args, env, omnilock_config)
 }
 
@@ -212,17 +216,19 @@ fn build_multisig_transfer_tx(
 }
 
 pub fn build_omnilock_unlockers(
-    keys: Vec<secp256k1::SecretKey>,
+    keys: Vec<PrivkeyWrapper>,
     config: OmniLockConfig,
     omni_lock_type_hash: H256,
 ) -> HashMap<ScriptId, Box<dyn ScriptUnlocker>> {
+    let keys: Vec<secp256k1::SecretKey> = keys.iter().map(|k| k.0).collect();
     let signer = if config.is_ethereum() {
         SecpCkbRawKeySigner::new_with_ethereum_secret_keys(keys)
     } else {
         SecpCkbRawKeySigner::new_with_secret_keys(keys)
     };
+    let omnilock_signer = Box::new(CommonSigner::new(vec![Box::new(signer)]));
     let omnilock_signer =
-        OmniLockScriptSigner::new(Box::new(signer), config.clone(), OmniUnlockMode::Normal);
+        OmniLockScriptSigner::new(omnilock_signer, config.clone(), OmniUnlockMode::Normal);
     let omnilock_unlocker = OmniLockUnlocker::new(omnilock_signer, config);
     let omnilock_script_id = ScriptId::new_type(omni_lock_type_hash);
     HashMap::from([(
