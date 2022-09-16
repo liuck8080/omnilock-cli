@@ -1,6 +1,8 @@
 # omnilock-cli
 CKB omnilock command line tool.
 
+For more information about omnilock, please visit the [RFC 42](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0042-omnilock/0042-omnilock.md)
+
 This tool can do omnilock related operations, like create a CKB omnilock address, transfer capacity from omnilock address to any address.
 
 [ckb-cli](https://github.com/nervosnetwork/ckb-cli) should be used to view transaction, get capacity from an address, view block information etc.
