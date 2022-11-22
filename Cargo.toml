@@ -8,13 +8,13 @@ edition = "2021"
 [dependencies]
 clap = { version = "3.2", features = ["derive"] }
 
-ckb-crypto = { version = "=0.104.0", features = ["secp"] }
-ckb-hash = "=0.104.0"
-ckb-jsonrpc-types = "=0.104.0"
-# ckb-sdk = "1.0.1"
-ckb-sdk = { git = "https://github.com/nervosnetwork/ckb-sdk-rust.git", branch = "master" }
-ckb-signer = "0.2.0"
-ckb-types = "=0.104.0"
+ckb-crypto = { version = "=0.105.1", features = ["secp"] }
+ckb-hash = "=0.105.1"
+ckb-jsonrpc-types = "=0.105.1"
+ckb-sdk = "2.3.0"
+#ckb-sdk = { git = "https://github.com/nervosnetwork/ckb-sdk-rust.git", branch = "master" }
+ckb-signer = "0.3.0"
+ckb-types = "0.105.1"
 
 dirs = "1.0.5"
 anyhow = "1.0"
@@ -29,4 +29,4 @@ yaml-rust = "0.4.3"
 
 jsonrpc-core = "18"
 
-secp256k1 = { version = "0.20", features = ["recovery"] }
+secp256k1 = { version = "0.24", features = ["recovery"] }

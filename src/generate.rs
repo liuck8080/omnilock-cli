@@ -150,8 +150,7 @@ fn build_transfer_tx_(
     let mut cell_dep_resolver = DefaultCellDepResolver::from_genesis(&genesis_block)?;
     cell_dep_resolver.insert(cell.script_id, cell.cell_dep, "Omni Lock".to_string());
     let header_dep_resolver = DefaultHeaderDepResolver::new(env.ckb_rpc.as_str());
-    let mut cell_collector =
-        DefaultCellCollector::new(env.ckb_indexer.as_str(), env.ckb_rpc.as_str());
+    let mut cell_collector = DefaultCellCollector::new(env.ckb_rpc.as_str());
     let tx_dep_provider = DefaultTransactionDependencyProvider::new(env.ckb_rpc.as_str(), 10);
 
     // Build base transaction

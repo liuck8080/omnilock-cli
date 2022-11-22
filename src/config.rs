@@ -39,9 +39,6 @@ pub struct ConfigContext {
 
     /// CKB rpc url
     pub ckb_rpc: String,
-
-    /// CKB indexer rpc url
-    pub ckb_indexer: String,
 }
 
 macro_rules! try_str {
@@ -79,17 +76,11 @@ fn expand_home_dir(path: &str) -> PathBuf {
 }
 
 impl ConfigContext {
-    pub fn new(
-        omnilock_tx_hash: H256,
-        omnilock_index: u32,
-        ckb_rpc: String,
-        ckb_indexer: String,
-    ) -> Self {
+    pub fn new(omnilock_tx_hash: H256, omnilock_index: u32, ckb_rpc: String) -> Self {
         ConfigContext {
             omnilock_tx_hash,
             omnilock_index,
             ckb_rpc,
-            ckb_indexer,
         }
     }
 
@@ -112,12 +103,10 @@ impl ConfigContext {
         let omnilock_index = try_i64!("omnilock_index", doc);
         let omnilock_index = u32::try_from(omnilock_index)?;
         let ckb_rpc = try_str!("ckb_rpc", doc);
-        let ckb_indexer = try_str!("ckb_indexer", doc);
         Ok(Self::new(
             omnilock_tx_hash,
             omnilock_index,
             ckb_rpc.to_string(),
-            ckb_indexer.to_string(),
         ))
     }
 
