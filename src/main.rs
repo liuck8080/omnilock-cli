@@ -7,6 +7,7 @@ mod keystore;
 mod sign;
 mod signer;
 mod txinfo;
+mod util;
 
 use ckb_jsonrpc_types as json_types;
 use std::{fs, path::PathBuf};
@@ -14,36 +15,12 @@ use std::{fs, path::PathBuf};
 use anyhow::{Context, Result};
 use build_addr::BuildAddress;
 use ckb_sdk::CkbRpcClient;
-use ckb_types::H256;
-use clap::{Args, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use config::{handle_config_cmds, ConfigCmds, ConfigContext};
 use generate::{generate_transfer_tx, GenerateTx};
 use sign::{sign_tx, SignCmd};
 
 use crate::{build_addr::build_omnilock_addr, txinfo::TxInfo};
-
-#[derive(Args)]
-struct EnvArgs {
-    /// omnilock script deploy transaction hash
-    #[clap(long, value_name = "H256")]
-    omnilock_tx_hash: H256,
-
-    /// cell index of omnilock script deploy transaction's outputs
-    #[clap(long, value_name = "NUMBER")]
-    omnilock_index: usize,
-
-    /// CKB rpc url
-    #[clap(long, value_name = "URL", default_value = "http://127.0.0.1:8114")]
-    ckb_rpc: String,
-
-    /// CKB indexer rpc url
-    #[clap(long, value_name = "URL", default_value = "http://127.0.0.1:8116")]
-    ckb_indexer: String,
-
-    /// omnilock config file path
-    #[clap(long, value_name = "FILE", default_value = "~")]
-    env_config_file: String,
-}
 
 #[derive(Subcommand)]
 enum Commands {

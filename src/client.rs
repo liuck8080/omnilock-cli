@@ -27,7 +27,7 @@ pub fn build_omnilock_cell_dep_from_client(
         .with_context(|| "while try to load live cells".to_string())?;
     ensure!(
         cell_status.cell.is_some(),
-        "Can't file the specified omnilock script cell: tx_hash {}, index {}",
+        "Can't find the specified omnilock script cell: tx_hash {}, index {}",
         tx_hash,
         index
     );

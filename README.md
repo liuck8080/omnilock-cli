@@ -1,9 +1,36 @@
-# Configuration
+# omnilock-cli
+CKB omnilock command line tool.
+
+For more information about omnilock, please visit the [RFC 42](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0042-omnilock/0042-omnilock.md)
+
+This tool can do omnilock related operations, like create a CKB omnilock address, transfer capacity from omnilock address to any address.
+
+[ckb-cli](https://github.com/nervosnetwork/ckb-cli) should be used to view transaction, get capacity from an address, view block information etc.
+
+Now the tool can only build address for pubkey-hash/multisig/ethereum, and transfer from these type of addresses.
+
+To be supported features:
+- Owner lock auth content;
+- Administrator mode;
+- anyone-can-pay mode;
+- time-lock mode;
+- supply mode;
+
+## Features
+```
+    config           configuration related operations
+    build-address    build omni lock address
+    generate-tx      generate a transaction not signed yet, with omnilock locked cell(s) as input
+    sign             Sign the transaction
+    send             Send the transaction
+```
+
+## Configuration
 The configuration file points out which cell the omnilock script was deployed, the url of the ckb rpc and the ckb index url.
 
 The default configuration file is ~/.omnilock.yaml, it can be specified with --config parameter.
 
-## Create an empty configure file.
+### Create an empty configure file.
 - To init an empty configure file:
 ```bash
 omnilock-cli config init
@@ -14,11 +41,11 @@ If the file already exist, you should remove it or rename it first.
 omnilock-cli -c omnilock.yaml config init
 ```
 
-## Fill the configure file with correct content
+### Fill the configure file with correct content
 
 After create the empty file, modify the file, fill the correct content, so you can use the configure file in the following operation.
 
-## Check the configure file
+### Check the configure file
 - Check the default configuration file
 ```bash
 omnilock-cli config check
@@ -28,8 +55,8 @@ omnilock-cli config check
  omnilock-cli -c ~/.omnilock.yaml config check
 ```
 
-# Build omnilock address
-## Build a pubkey-hash address with receiver
+## Build omnilock address
+### Build a pubkey-hash address with receiver
 ```bash
 # build with receiver's sighash address
 omnilock-cli build-address pubkey-hash --sighash-address ckt1qyqt8xpk328d89zgl928nsgh3lelch33vvvq5u3024
@@ -46,7 +73,7 @@ The output:
 }
 ```
 
-## Build a multisig address
+### Build a multisig address
 ```bash
 omnilock-cli build-address multisig --require-first-n 0 --threshold 2 \
                                     --sighash-address ckt1qyqt8xpk328d89zgl928nsgh3lelch33vvvq5u3024 \
@@ -62,7 +89,7 @@ The output:
   "testnet": "ckt1qqklkz85v4xt39ws5dd2hdv8xsy4jnpe3envjzvddqecxr0mgvrksqgxt47sz28w4fhev44z9x6z4twsk9ma8pltqqx6nqmf"
 }
 ```
-## Build an ethereum address
+### Build an ethereum address
 1. Build with receiver's private key:
 ```bash
 omnilock-cli build-address ethereum --ethereum-privkey 0x63d86723e08f0f813a36ce6aa123bb2289d90680ae1e99d4de8cdb334553f24d
@@ -89,9 +116,9 @@ omnilock-cli build-address ethereum --ethereum-pubkey 038d3cfceea4f9c2e76c5c4f5e
 omnilock-cli build-address ethereum --ethereum-pubkey 048d3cfceea4f9c2e76c5c4f5e99aec74c26d6ac894648b5700a0b71f91f9b5c2a26b16aac1d5753e56849ea83bf795eb8b06f0b6f4e5ed7b8caca720595458039
 ```
 
-# Simple transfer
+## Simple transfer capacity from an omnilock cell
 This kind of transaction is suitable of unlock value of the cell.
-## Simple transfer from pubkey hash omnilock cell.
+### Simple transfer from pubkey hash omnilock cell.
 1. Build the address.
 ```bash
 omnilock-cli build-address pubkey-hash --sighash-address ckt1qyqt8xpk328d89zgl928nsgh3lelch33vvvq5u3024
@@ -129,7 +156,7 @@ omnilock-cli send --tx-file tx.json
 # >>> tx ac2cce746764cf9ecad7eefb82d24f8bcf5eb4708c65dde562bf96c86bbad831 sent! <<<
 ```
 
-## Simple transfer from multisig omnilock cell.
+### Simple transfer from multisig omnilock cell.
 1. Build the address.
 ```bash
 omnilock-cli build-address multisig --require-first-n 0 --threshold 2 \
@@ -185,7 +212,7 @@ omnilock-cli send --tx-file tx.json
 # >>> tx 1a4e1f8bfa22abf5f1851f894a0873f5553d3396a3794caa015b5c276345f630 sent! <<<
 ```
 
-## Simple transfer from ethereum omnilock cell.
+### Simple transfer from ethereum omnilock cell.
 1. build the address.
 ```bash
 omnilock-cli build-address ethereum --ethereum-privkey 0x63d86723e08f0f813a36ce6aa123bb2289d90680ae1e99d4de8cdb334553f24d
@@ -234,9 +261,9 @@ omnilock-cli send --tx-file tx.json
 ```
 
 
-# Manual transfer(todo)
-## Init empty transaction
-## Add input
-## Add output
-## Sign transaction
-## Send transaction
+## Manual transfer(todo)
+### Init empty transaction
+### Add input
+### Add output
+### Sign transaction
+### Send transaction

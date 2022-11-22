@@ -1,3 +1,4 @@
+use crate::util::strip_prefix_0x;
 use anyhow::Result;
 use ckb_sdk::util::zeroize_privkey;
 use ckb_types::{H160, H256};
@@ -11,12 +12,7 @@ macro_rules! arg_parser {
     ($name:ident) => {
         impl ArgParser<$name> for $name {
             fn parse(s: &str) -> Result<$name> {
-                let s = if s.starts_with("0x") || s.starts_with("0X") {
-                    &s[2..]
-                } else {
-                    s
-                };
-                Ok($name::from_str(s)?)
+                Ok($name::from_str(strip_prefix_0x(s))?)
             }
         }
     };
