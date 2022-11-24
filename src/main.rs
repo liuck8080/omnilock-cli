@@ -1,4 +1,6 @@
+mod add;
 mod arg_parser;
+
 mod build_addr;
 mod client;
 mod config;
@@ -20,10 +22,18 @@ use config::{handle_config_cmds, ConfigCmds, ConfigContext};
 use generate::{generate_transfer_tx, GenerateTx};
 use sign::{sign_tx, SignCmd};
 
-use crate::{build_addr::build_omnilock_addr, txinfo::TxInfo};
+use crate::{
+    add::{handle_add_input, handle_add_output, AddInputArgs, AddOutputArgs},
+    build_addr::build_omnilock_addr,
+    txinfo::TxInfo,
+};
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Add input
+    AddInput(AddInputArgs),
+    /// Add output
+    AddOutput(AddOutputArgs),
     /// build omni lock address
     #[clap(subcommand)]
     BuildAddress(BuildAddress),
@@ -65,6 +75,13 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::AddInput(args) => {
+            let config = ConfigContext::parse(&cli.config)?;
+            handle_add_input(&args, &config)?;
+        }
+        Commands::AddOutput(args) => {
+            handle_add_output(&args)?;
+        }
         Commands::BuildAddress(cmds) => {
             let config = ConfigContext::parse(&cli.config)?;
             build_omnilock_addr(cmds, &config)?;

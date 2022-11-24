@@ -120,6 +120,38 @@ In the generate `tx.json`, you will see the output capacity is `0x248202200` whi
 ```sh
 omnilock-cli sign pubkey-hash --tx-file tx.json --from-account b398368a8ed39448f95479c1178ff3fc5e316318
 ```
+4. Add input cell, the cell get 142.9 CKB
+```sh
+omnilock-cli add-input --tx-hash 0x28b312399ce4fb35358c49fd21cd8a9422949014aa05ec0dc5f31752de70bd79 --index 0 --tx-file tx.json
+```
+5. Add output cell, the --capacity is 143.89997887, so the tx_fee is 0.00002113 CKB.
+```sh
+./target/debug/omnilock-cli add-output --to-address ckt1qyqz7xmq3ee2nfu4k04thv4vuczd3tqt465qtjdy89 --capacity 143.89997887 --tx-file tx.json
+```
+6. Transfer the tx-file into ckb-cli compatible version
+  - Manually transfer the file:
+    * Copy the tx.json to tx.ckb-cli.json
+    * Edit the tx.ckb-cli.json, replace `"omnilock_config"` section with `"multisig_configs": {},  "signatures": {}`.
+
+7. Sign the transaction with ckb-cli, because the ckb-cli have no idea about omnilock, so we add `--skip-check` parameter, be careful about this parameter.
+```sh
+ckb-cli tx sign-inputs --from-account 0x2f1b608e72a9a795b3eabbb2ace604d8ac0baea8 --tx-file tx.ckb-cli.json --skip-check
+```
+It will only print the signature and it's according lock-arg:
+```yaml
+- lock-arg: 0x2f1b608e72a9a795b3eabbb2ace604d8ac0baea8
+  signature: 0xe80837cfc045519f7d9d94ddf460c8ad8a43fc150f494cfca7cb650706e7ad0731ca2a2d41d463a13210fb75186e72a68d8e774bf96ed845648b7f700970e30d00
+```
+8. Add the signature
+```sh
+ckb-cli tx add-signature --lock-arg 0x2f1b608e72a9a795b3eabbb2ace604d8ac0baea8 \
+  --signature 0xe80837cfc045519f7d9d94ddf460c8ad8a43fc150f494cfca7cb650706e7ad0731ca2a2d41d463a13210fb75186e72a68d8e774bf96ed845648b7f700970e30d00 \
+  --tx-file tx.ckb-cli.json
+```
+9.  Send the transaction, we add `--skip-check` to avoid the `invalid lock script code_hash` complain, since ckb-cli known nothing about it, please be careful.
+```sh
+tx send --tx-file tx.ckb-cli.json --skip-check
+```
 
 ### Ethereum open transaction.
 1. Build a sighash opentx address.
