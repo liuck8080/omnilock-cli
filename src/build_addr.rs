@@ -9,11 +9,33 @@ use ckb_sdk::{
     Address, NetworkType, SECP256K1,
 };
 use ckb_types::{core::ScriptHashType, packed::Script, prelude::*, H160, H256};
-use clap::{ArgGroup, Args, Subcommand};
+use clap::{ArgGroup, Args, Subcommand, ValueEnum};
 
 use anyhow::{anyhow, bail, ensure, Result};
 use jsonrpc_core::Value;
 use serde_json::json;
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+#[repr(u8)]
+enum OmniLockFlags {
+    // administrator mode, flag is 1, affected args:  RC cell type ID, affected field:omni_identity/signature in OmniLockWitnessLock
+    //ADMIN = 1,
+    // anyone-can-pay mode, flag is 1<<1, affected args: minimum ckb/udt in ACP
+    // ACP = 1<<1,
+    // time-lock mode, flag is 1<<2, affected args: since for timelock
+    // TIMELOCK = 1<<2,
+    // supply mode, flag is 1<<3, affected args: type script hash for supply
+    // SUPPLY = 1<<3,
+    /// open transaction mode.
+    OPENTX = 1 << 4,
+}
+#[derive(Args)]
+pub struct ConfigArgs {
+    /// The receiver address
+    #[clap(long, value_name = "flags", value_enum)]
+    flags: Vec<OmniLockFlags>,
+}
+
 #[derive(Args)]
 pub(crate) struct PubkeyHashArgs {
     /// The receiver address
@@ -22,6 +44,9 @@ pub(crate) struct PubkeyHashArgs {
     /// The receiver's blake160 hash of a public key, lock-arg
     #[clap(long, value_name = "HASH", value_parser=H160::parse)]
     pubkey_hash: Option<H160>,
+
+    #[clap(flatten)]
+    common_args: ConfigArgs,
 }
 
 #[derive(Args)]
@@ -57,6 +82,8 @@ pub(crate) struct EthereumArgs {
         value_parser
     )]
     to_print_addr: bool,
+    #[clap(flatten)]
+    common_args: ConfigArgs,
 }
 
 #[derive(Args)]
@@ -72,6 +99,8 @@ pub(crate) struct MultiSigArgs {
     /// Normal sighash addresses
     #[clap(long, multiple_values = true, value_name = "ADDRESS")]
     sighash_address: Vec<Address>,
+    #[clap(flatten)]
+    common_args: ConfigArgs,
 }
 
 #[derive(Subcommand)]
@@ -118,6 +147,14 @@ pub(crate) fn build_omnilock_addr(cmds: BuildAddress, env: &ConfigContext) -> Re
     Ok(())
 }
 
+fn set_omnilock_config_mode(config: &mut OmniLockConfig, args: &ConfigArgs) {
+    for v in &args.flags {
+        match v {
+            OmniLockFlags::OPENTX => config.set_opentx_mode(),
+        }
+    }
+}
+
 fn build_pubkeyhash_addr(args: PubkeyHashArgs, env: &ConfigContext) -> Result<()> {
     let arg = if let Some(pubkey_hash) = args.pubkey_hash {
         pubkey_hash
@@ -136,8 +173,8 @@ fn build_pubkeyhash_addr(args: PubkeyHashArgs, env: &ConfigContext) -> Result<()
     } else {
         bail!("The receiver's pubkey hash or address must be provided!");
     };
-    let config = OmniLockConfig::new_pubkey_hash(arg);
-
+    let mut config = OmniLockConfig::new_pubkey_hash(arg);
+    set_omnilock_config_mode(&mut config, &args.common_args);
     build_addr_with_omnilock_conf(&config, env, BTreeMap::default())
 }
 
@@ -171,8 +208,9 @@ fn build_ethereum_addr(args: EthereumArgs, env: &ConfigContext) -> Result<()> {
         }
         addr
     };
-    let config = OmniLockConfig::new_ethereum(address);
+    let mut config = OmniLockConfig::new_ethereum(address);
 
+    set_omnilock_config_mode(&mut config, &args.common_args);
     build_addr_with_omnilock_conf(&config, env, extra_json)
 }
 
@@ -180,7 +218,8 @@ fn build_multisig_addr(args: MultiSigArgs, env: &ConfigContext) -> Result<()> {
     let multisig_config =
         build_multisig_config(&args.sighash_address, args.require_first_n, args.threshold)?;
 
-    let config = OmniLockConfig::new_multisig(multisig_config);
+    let mut config = OmniLockConfig::new_multisig(multisig_config);
+    set_omnilock_config_mode(&mut config, &args.common_args);
     build_addr_with_omnilock_conf(&config, env, BTreeMap::default())
 }
 

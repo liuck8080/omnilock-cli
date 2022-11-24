@@ -50,7 +50,7 @@ After create the empty file, modify the file, fill the correct content, so you c
 ```bash
 omnilock-cli config check
 ```
--- Check the specified configuration file:
+- Check the specified configuration file:
 ```bash
  omnilock-cli -c ~/.omnilock.yaml config check
 ```

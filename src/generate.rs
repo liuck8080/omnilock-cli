@@ -8,10 +8,10 @@ use ckb_sdk::{
         DefaultTransactionDependencyProvider, SecpCkbRawKeySigner,
     },
     tx_builder::{
-        balance_tx_capacity, fill_placeholder_witnesses, transfer::CapacityTransferBuilder,
-        CapacityBalancer, TxBuilder,
+        balance_tx_capacity, fill_placeholder_witnesses, omni_lock::OmniLockTransferBuilder,
+        transfer::CapacityTransferBuilder, CapacityBalancer, TxBuilder,
     },
-    unlock::{OmniLockConfig, OmniLockScriptSigner},
+    unlock::{opentx::OpentxWitness, OmniLockConfig, OmniLockScriptSigner},
     unlock::{OmniLockUnlocker, OmniUnlockMode, ScriptUnlocker},
     Address, HumanCapacity, ScriptId,
 };
@@ -33,6 +33,8 @@ use crate::{
     txinfo::TxInfo,
 };
 use anyhow::{Context, Result};
+
+use rand::Rng;
 use std::fs;
 #[derive(Args)]
 pub struct GeneratePubkeyHashArgs {
@@ -53,6 +55,16 @@ pub struct CommonArgs {
     /// The capacity to transfer (unit: CKB, example: 102.43)
     #[clap(long, value_name = "CKB")]
     capacity: HumanCapacity,
+
+    /// The capacity to transfer (unit: CKB, example: 102.43), according receiver is open, so it will be an open transaction.
+    #[clap(long, value_name = "CKB")]
+    open_capacity: Option<HumanCapacity>,
+    /// The fee_rate
+    #[clap(long, value_name = "NUMBER", default_value = "1000")]
+    fee_rate: u64,
+    /// salt value for open transaction input command list, if not specified, a random salt value will be generated.
+    #[clap(long, value_name = "NUMBER")]
+    open_salt: Option<u32>,
 
     /// The output transaction info file (.json)
     #[clap(long, value_name = "PATH")]
@@ -122,7 +134,7 @@ fn build_pubkeyhash_transfer_tx(
 fn build_transfer_tx_(
     args: &CommonArgs,
     env: &ConfigContext,
-    omnilock_config: OmniLockConfig,
+    mut omnilock_config: OmniLockConfig,
 ) -> Result<(TransactionView, OmniLockConfig, PathBuf)> {
     let mut ckb_client = CkbRpcClient::new(env.ckb_rpc.as_str());
     let cell = build_omnilock_cell_dep_from_client(
@@ -130,6 +142,9 @@ fn build_transfer_tx_(
         &env.omnilock_tx_hash,
         env.omnilock_index,
     )?;
+    if args.open_capacity.is_some() {
+        omnilock_config.set_opentx_mode();
+    }
     // Build CapacityBalancer
     let sender = Script::new_builder()
         .code_hash(cell.type_hash.pack())
@@ -137,7 +152,7 @@ fn build_transfer_tx_(
         .args(omnilock_config.build_args().pack())
         .build();
     let placeholder_witness = omnilock_config.placeholder_witness(OmniUnlockMode::Normal)?;
-    let balancer = CapacityBalancer::new_simple(sender, placeholder_witness, 1000);
+    let balancer = CapacityBalancer::new_simple(sender.clone(), placeholder_witness, args.fee_rate);
 
     // Build:
     //   * CellDepResolver
@@ -159,7 +174,19 @@ fn build_transfer_tx_(
         .lock(Script::from(&args.receiver))
         .capacity(args.capacity.0.pack())
         .build();
-    let builder = CapacityTransferBuilder::new(vec![(output, Bytes::default())]);
+    let builder: Box<dyn TxBuilder> = if args.open_capacity.is_none() {
+        Box::new(CapacityTransferBuilder::new(vec![(
+            output,
+            Bytes::default(),
+        )]))
+    } else {
+        Box::new(OmniLockTransferBuilder::new_open(
+            args.open_capacity.unwrap(),
+            vec![(output, Bytes::default())],
+            omnilock_config.clone(),
+            None,
+        ))
+    };
 
     let base_tx = builder.build_base(
         &mut cell_collector,
@@ -183,7 +210,7 @@ fn build_transfer_tx_(
         fill_placeholder_witnesses(base_tx, &tx_dep_provider, &unlockers)
             .with_context(|| "try to fill placeholder witnesses".to_string())?;
 
-    let tx = balance_tx_capacity(
+    let mut tx = balance_tx_capacity(
         &tx_filled_witnesses,
         &balancer,
         &mut cell_collector,
@@ -192,6 +219,24 @@ fn build_transfer_tx_(
         &header_dep_resolver,
     )
     .with_context(|| "try to balance capacity".to_string())?;
+    if omnilock_config.is_opentx_mode() {
+        tx = OmniLockTransferBuilder::remove_open_out(tx);
+        let salt = if args.open_salt.is_some() {
+            args.open_salt
+        } else {
+            let mut rng = rand::thread_rng();
+            Some(rng.gen())
+        };
+        let wit = OpentxWitness::new_sig_all_relative(&tx, salt).unwrap();
+        omnilock_config.set_opentx_input(wit);
+        tx = OmniLockTransferBuilder::update_opentx_witness(
+            tx,
+            &omnilock_config,
+            OmniUnlockMode::Normal,
+            &tx_dep_provider,
+            &sender,
+        )?;
+    }
     Ok((tx, omnilock_config, args.tx_file.clone()))
 }
 

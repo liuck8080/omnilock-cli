@@ -11,14 +11,15 @@ clap = { version = "3.2", features = ["derive"] }
 ckb-crypto = { version = "=0.105.1", features = ["secp"] }
 ckb-hash = "=0.105.1"
 ckb-jsonrpc-types = "=0.105.1"
-ckb-sdk = "2.3.0"
-#ckb-sdk = { git = "https://github.com/nervosnetwork/ckb-sdk-rust.git", branch = "master" }
+# ckb-sdk = "2.3.0"
+ckb-sdk = { git = "https://github.com/liuck8080/ckb-sdk-rust.git", branch = "opentx_sign_tx" }
 ckb-signer = "0.3.0"
 ckb-types = "0.105.1"
 
 dirs = "1.0.5"
 anyhow = "1.0"
 
+rand = "0.7.3"
 rpassword = "3.0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_derive = "1.0"
