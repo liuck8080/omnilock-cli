@@ -112,7 +112,7 @@ fn sign_pubkey_hash_tx(args: &SignTxPubkeyHashArgs, env: &ConfigContext) -> Resu
     if lock_field != tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)?
         && still_locked_groups.is_empty()
     {
-        println!("> transaction ready to send!");
+        println!("> transaction signed!");
     } else {
         bail!("Failed to sign the transaction!");
     }
@@ -144,7 +144,7 @@ fn sign_ethereum_tx(args: &EthereumArgs, env: &ConfigContext) -> Result<()> {
     if lock_field != tx_info.omnilock_config.zero_lock(OmniUnlockMode::Normal)?
         && still_locked_groups.is_empty()
     {
-        println!("> transaction ready to send!");
+        println!("> transaction signed!");
     } else {
         bail!("Failed to sign the transaction!");
     }
@@ -182,6 +182,11 @@ fn sign_multisig_tx(args: &SignTxMultisigArgs, env: &ConfigContext) -> Result<()
                 .unwrap();
 
             let mut idx = multisig_config.to_witness_data().len();
+            if tx_info.omnilock_config.is_opentx_mode() {
+                if let Some(opentx_wit) = tx_info.omnilock_config.get_opentx_input() {
+                    idx += opentx_wit.opentx_sig_data_len();
+                }
+            }
             let mut empty_n = 0u32; // empty number of slices of signatures.
             while idx < omni_sig.len() {
                 if omni_sig[idx..idx + 65] == [0u8; 65] {
@@ -190,7 +195,7 @@ fn sign_multisig_tx(args: &SignTxMultisigArgs, env: &ConfigContext) -> Result<()
                 idx += 65;
             }
             if empty_n == 0 {
-                println!("> transaction ready to send!");
+                println!("> transaction signed!");
             } else if empty_n <= n as u32 {
                 println!("> {} more signature(s) need !", empty_n);
             } else {

@@ -13,6 +13,7 @@ mod util;
 
 use ckb_jsonrpc_types as json_types;
 use std::{fs, path::PathBuf};
+use txinfo::{handle_export_tx_info, ExportTxArgs};
 
 use anyhow::{Context, Result};
 use build_addr::BuildAddress;
@@ -37,6 +38,8 @@ enum Commands {
     /// build omni lock address
     #[clap(subcommand)]
     BuildAddress(BuildAddress),
+    /// Transform an omnilock tx info file into a ckb-cli compatible format
+    ExportTx(ExportTxArgs),
     /// generate a transaction not signed yet
     #[clap(subcommand)]
     GenerateTx(GenerateTx),
@@ -85,6 +88,9 @@ fn main() -> Result<()> {
         Commands::BuildAddress(cmds) => {
             let config = ConfigContext::parse(&cli.config)?;
             build_omnilock_addr(cmds, &config)?;
+        }
+        Commands::ExportTx(cmds) => {
+            handle_export_tx_info(cmds)?;
         }
         Commands::GenerateTx(cmds) => {
             let config = ConfigContext::parse(&cli.config)?;

@@ -1,4 +1,4 @@
-use crate::{config::ConfigContext, txinfo::TxInfo, arg_parser::ArgParser};
+use crate::{arg_parser::ArgParser, config::ConfigContext, txinfo::TxInfo};
 use anyhow::Result;
 use ckb_jsonrpc_types as json_types;
 use ckb_sdk::{
